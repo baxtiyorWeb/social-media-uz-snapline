@@ -4,20 +4,17 @@ workflows:
     instance_type: mac_mini_m1
     max_build_duration: 60
 
-    # Environment Variables (Sizning Expo yoki Apple/Google credentiallaringiz uchun)
     environment:
       vars:
-        EXPO_TOKEN: ENCRYPTED_EXPO_TOKEN_HERE
+        EXPO_TOKEN: $EXPO_TOKEN # Codemagic dashboardda qo‘shilgan
       flutter: stable
       xcode: latest
 
     scripts:
       - name: Install dependencies
-        # Agar Expo yoki yarn dan foydalansangiz
         script: |
           npm install -g eas-cli
           npm install
-          # yoki yarn ishlatilsa: yarn install
 
       - name: Authenticate EAS
         script: |
@@ -32,5 +29,5 @@ workflows:
           eas build --platform ios --profile production --non-interactive
 
     artifacts:
-      - build/android/app.aab
-      - build/ios/*.ipa
+      - ./android/app/build/outputs/**/*.aab
+      - ./ios/build/**/*.ipa
