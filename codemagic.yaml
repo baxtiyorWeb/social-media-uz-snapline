@@ -1,0 +1,36 @@
+workflows:
+  react-native-eas-build:
+    name: Expo EAS Build (Android & iOS)
+    instance_type: mac_mini_m1
+    max_build_duration: 60
+
+    # Environment Variables (Sizning Expo yoki Apple/Google credentiallaringiz uchun)
+    environment:
+      vars:
+        EXPO_TOKEN: ENCRYPTED_EXPO_TOKEN_HERE
+      flutter: stable
+      xcode: latest
+
+    scripts:
+      - name: Install dependencies
+        # Agar Expo yoki yarn dan foydalansangiz
+        script: |
+          npm install -g eas-cli
+          npm install
+          # yoki yarn ishlatilsa: yarn install
+
+      - name: Authenticate EAS
+        script: |
+          eas whoami
+
+      - name: Build Android AAB
+        script: |
+          eas build --platform android --profile production --non-interactive
+
+      - name: Build iOS IPA
+        script: |
+          eas build --platform ios --profile production --non-interactive
+
+    artifacts:
+      - build/android/app.aab
+      - build/ios/*.ipa
