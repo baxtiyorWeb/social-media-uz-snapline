@@ -1,4 +1,6 @@
 import { HapticTab } from '@/components/haptic-tab';
+import { ProfileTabButton } from '@/components/profileTabButton';
+import { useCheckAuth } from '@/hooks/check-auth';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,7 +11,7 @@ import { Animated, Pressable, StyleSheet } from 'react-native';
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   // const theme = Colors[colorScheme ?? 'light'];
-
+  const { user, loading } = useCheckAuth()
 
   const TabIcon = ({ name, focused }: { name: keyof typeof Ionicons.glyphMap; focused: boolean }) => {
     const scale = React.useRef(new Animated.Value(focused ? 1.2 : 1)).current;
@@ -102,7 +104,13 @@ export default function TabLayout() {
         tabBarStyle: route.name === 'add-video' ? { display: 'none' } : {},
       })} />
       <Tabs.Screen name="messages" options={{ tabBarIcon: ({ focused }) => <TabIcon name="chatbubble" focused={focused} /> }} />
-      <Tabs.Screen name="profile" options={{ tabBarIcon: ({ focused }) => <TabIcon name="person" focused={focused} /> }} />
+      <Tabs.Screen name="profile"
+
+        options={{
+          tabBarIcon: ({ focused }) =>
+            <TabIcon name="person" focused={focused} />,
+          tabBarButton: (props) => { return <ProfileTabButton {...props} /> },
+        }} />
     </Tabs>
   );
 }

@@ -1,5 +1,8 @@
+import { useCheckAuth } from '@/hooks/check-auth';
 import { Ionicons } from '@expo/vector-icons';
+import { Video } from 'expo-av';
 import { BlurView } from 'expo-blur';
+import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
   Dimensions,
@@ -15,28 +18,8 @@ import {
 
 const { width } = Dimensions.get('window');
 
-interface Video {
-  id: string;
-  thumbnail: string;
-  views: string;
-  likes: string;
-  duration: string;
-}
 
-const MOCK_VIDEOS: Video[] = Array.from({ length: 12 }).map((_, idx) => ({
-  id: `v${idx + 1}`,
-  thumbnail: `https://picsum.photos/400/600?random=${idx + 100}`,
-  views: `${Math.floor(Math.random() * 900 + 100)}K`,
-  likes: `${Math.floor(Math.random() * 50 + 10)}K`,
-  duration: `0:${Math.floor(Math.random() * 40 + 15)}`,
-}));
 
-const STATS = [
-  { label: 'Videos', value: '248' },
-  { label: 'Followers', value: '1.2M' },
-  { label: 'Following', value: '342' },
-  { label: 'Likes', value: '8.7M' },
-];
 
 const HIGHLIGHTS = [
   { id: '1', title: 'Travel', image: 'https://i.pravatar.cc/150?img=20', color: '#FF6B6B' },
@@ -49,24 +32,41 @@ const HIGHLIGHTS = [
 export default function Profile() {
   const [activeTab, setActiveTab] = useState<'videos' | 'liked' | 'saved'>('videos');
   const [isFollowing, setIsFollowing] = useState(false);
+  const { user } = useCheckAuth()
 
-  const renderVideoItem = ({ item, index }: { item: Video; index: number }) => (
+
+
+
+  const STATS = [
+    { label: 'Videos', value: user?.posts?.length },
+    { label: 'Followers', value: `${user?.followers?.length}` },
+    { label: 'Following', value: `${user?.following?.length}` },
+    { label: 'Likes', value: '8.7M' },
+  ];
+  const renderVideoItem = ({ item, index }: { item: any; index: number }) => (
     <TouchableOpacity
       style={[styles.videoCard, index % 3 !== 2 && styles.videoCardMargin]}
       activeOpacity={0.9}
+      onPress={() => {
+        // VIDEO DETAIL PAGE-GA O'TISH
+        router.push(`/video/${item.id}`);
+      }}
     >
-      <Image source={{ uri: item.thumbnail }} style={styles.videoThumbnail} />
+      <Video
+        source={{ uri: item.videoUrl || 'https://via.placeholder.com/300x450' }}
+        style={styles.videoThumbnail}
+      />
 
       {/* Gradient Overlay */}
       <View style={styles.videoOverlay}>
         <View style={styles.videoStats}>
           <View style={styles.videoStat}>
-            <Ionicons name="play" size={14} color="#fff" />
-            <Text style={styles.videoStatText}>{item.views}</Text>
+            <Text style={styles.videoStatIcon}>▶</Text>
+            <Text style={styles.videoStatText}>{item.views || 0}</Text>
           </View>
         </View>
         <View style={styles.videoDuration}>
-          <Text style={styles.videoDurationText}>{item.duration}</Text>
+          <Text style={styles.videoDurationText}>{item.duration || '0:30'}</Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -98,8 +98,8 @@ export default function Profile() {
               <Text style={styles.notificationBadgeText}>3</Text>
             </View>
           </TouchableOpacity>
-          <Text style={styles.username}>@alexcreator</Text>
-          <TouchableOpacity style={styles.headerButton}>
+          <Text style={styles.username}>@{user?.profile?.username}</Text>
+          <TouchableOpacity style={styles.headerButton} onPress={() => router.push('/settings')}>
             <Ionicons name="menu-outline" size={26} color="#fff" />
           </TouchableOpacity>
         </BlurView>
@@ -109,7 +109,7 @@ export default function Profile() {
           {/* Avatar */}
           <View style={styles.avatarContainer}>
             <Image
-              source={{ uri: 'https://i.pravatar.cc/300?img=12' }}
+              source={{ uri: user?.profile?.avatar }}
               style={styles.avatar}
             />
             <View style={styles.verifiedBadge}>
@@ -118,7 +118,7 @@ export default function Profile() {
           </View>
 
           {/* Name & Bio */}
-          <Text style={styles.displayName}>Alex Anderson</Text>
+          <Text style={styles.displayName}>{user?.profile?.firstName}{" "} {user?.profile?.lastName}</Text>
           <Text style={styles.bio}>
             Content Creator 🎥 | Digital Artist 🎨{'\n'}
             Making the world more creative ✨
@@ -221,7 +221,7 @@ export default function Profile() {
         {/* Video Grid */}
         <View style={styles.videosGrid}>
           <FlatList
-            data={MOCK_VIDEOS}
+            data={user?.posts}
             renderItem={renderVideoItem}
             keyExtractor={(item) => item.id}
             numColumns={3}
@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   displayName: {
-    fontSize: 28,
+    fontSize: 18,
     fontWeight: '800',
     color: '#fff',
     marginBottom: 8,

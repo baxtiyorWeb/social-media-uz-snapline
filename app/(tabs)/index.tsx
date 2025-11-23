@@ -1,17 +1,15 @@
+import api from '@/config/api';
 import { Ionicons } from '@expo/vector-icons';
+import { Video } from 'expo-av';
 import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import { router } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import {
-  Animated,
   Dimensions,
   FlatList,
   Image,
-  Modal,
   Platform,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -19,7 +17,7 @@ import {
   View,
 } from 'react-native';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 interface Story {
   id: string;
@@ -39,8 +37,6 @@ interface Snap {
   timeAgo: string;
   category: string;
   isFollowing: boolean;
-  likes: string;
-  comments: number;
 }
 
 const STORIES: Story[] = [
@@ -73,8 +69,6 @@ const SNAPS: Snap[] = Array.from({ length: 20 }).map((_, idx) => ({
   timeAgo: ['2m', '15m', '1h', '3h', '5h', '1d', '2d', '3d'][idx % 8],
   category: ['Trending', 'Music', 'Gaming', 'Food', 'Travel', 'Art'][idx % 6],
   isFollowing: idx % 3 === 0,
-  likes: `${Math.floor(Math.random() * 50 + 10)}K`,
-  comments: Math.floor(Math.random() * 200 + 50),
 }));
 
 const CATEGORIES = ['For You', 'Trending', 'Music', 'Gaming', 'Food', 'Travel', 'Art', 'Sports'];
@@ -82,110 +76,67 @@ const CATEGORIES = ['For You', 'Trending', 'Music', 'Gaming', 'Food', 'Travel', 
 export default function Snaps() {
   const [selectedCategory, setSelectedCategory] = useState('For You');
   const [searchQuery, setSearchQuery] = useState('');
-  const [previewVideo, setPreviewVideo] = useState<Snap | null>(null);
-  const router = useRouter();
 
-  // Animation values
-  const scaleAnim = useRef(new Animated.Value(0)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(50)).current;
+
+  const [posts, setPosts] = useState<any[]>([]);
+
+
+  const getPosts = async () => {
+    const data = await api.get("/posts", {
+      params: {
+        page: 1,
+        limit: 100,
+      }
+    })
+
+    return data.data
+  }
+
 
   useEffect(() => {
-    if (previewVideo) {
-      Animated.parallel([
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          tension: 60,
-          friction: 8,
-          useNativeDriver: true,
-        }),
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.spring(slideAnim, {
-          toValue: 0,
-          tension: 60,
-          friction: 8,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    } else {
-      // Animation reset (to be sure the next animation starts correctly)
-      // We don't need to reset here since `closeModal` handles the exit animation
-      // and sets state to null. The logic in `closeModal` will ensure smooth exit.
-    }
-  }, [previewVideo]);
+    const fetchPosts = async () => {
+      try {
+        const data = await getPosts();
+        setPosts(data);
+      } catch (error) {
+        console.log("error", error);
+      }
+    };
 
-  const closeModal = () => {
-    Animated.parallel([
-      Animated.timing(scaleAnim, {
-        toValue: 0.9, // Kichik o'lchamga qaytadi
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 50,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      setPreviewVideo(null);
-      // Animatsiyani qayta tiklash
-      scaleAnim.setValue(0);
-      fadeAnim.setValue(0);
-      slideAnim.setValue(50);
-    });
-  };
+    fetchPosts();
+  }, []);
 
-  const openPreview = (snap: Snap) => {
-    setPreviewVideo(snap);
-  };
 
-  const filteredSnaps = SNAPS.filter(snap =>
-    snap.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    snap.user.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+
+
+
+
+
+  // const filteredSnaps = SNAPS.filter(snap =>
+  //   snap.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+  //   snap.user.toLowerCase().includes(searchQuery.toLowerCase())
+  // );
 
   const renderStory = ({ item }: { item: Story }) => (
-    <TouchableOpacity style={styles.storyItem} activeOpacity={0.7}>
-      {item.hasStory ? (
-        <LinearGradient
-          colors={['#9b5de5', '#5a4ae3', '#4a8fe7', '#4adede', '#ff6cab']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.storyRingGradient}
-        >
-          <View style={styles.storyCircle}>
-            <Image source={{ uri: item.avatar }} style={styles.storyAvatar} />
+    <TouchableOpacity style={styles.storyItem}>
+      <View style={[
+        styles.storyCircle,
+        item.hasStory && styles.storyCircleActive,
+        item.id === 'add' && styles.storyCircleAdd,
+      ]}>
+        <Image source={{ uri: item.avatar }} style={styles.storyAvatar} />
+        {item.id === 'add' && (
+          <View style={styles.addStoryBadge}>
+            <Ionicons name="add" size={16} color="#fff" />
           </View>
-          {item.isLive && (
-            <View style={styles.liveBadge}>
-              <Text style={styles.liveText}>LIVE</Text>
-            </View>
-          )}
-        </LinearGradient>
-      ) : (
-        <View style={[styles.storyCircle, styles.storyCircleAdd]}>
-          <Image source={{ uri: item.avatar }} style={styles.storyAvatar} />
-        </View>
-      )}
-
-      <Text style={styles.storyUsername} numberOfLines={1}>
-        {item.user}
-      </Text>
-
-      {item.id === 'add' && (
-        <View style={styles.addStoryBadge}>
-          <Ionicons name="add" size={18} color="#fff" />
-        </View>
-      )}
+        )}
+        {item.isLive && (
+          <View style={styles.liveBadge}>
+            <Text style={styles.liveText}>LIVE</Text>
+          </View>
+        )}
+      </View>
+      <Text style={styles.storyUsername} numberOfLines={1}>{item.user}</Text>
     </TouchableOpacity>
   );
 
@@ -194,78 +145,87 @@ export default function Snaps() {
       key={category}
       style={[styles.categoryChip, selectedCategory === category && styles.categoryChipActive]}
       onPress={() => setSelectedCategory(category)}
-      activeOpacity={0.7}
     >
       <Text style={[styles.categoryText, selectedCategory === category && styles.categoryTextActive]}>
         {category}
       </Text>
     </TouchableOpacity>
   );
+  const getTimeAgo = (dateString: string) => {
+    const diff = (Date.now() - new Date(dateString).getTime()) / 1000;
 
-  const renderSnap = ({ item }: { item: Snap }) => (
-    <TouchableOpacity
-      style={styles.snapCard}
-      activeOpacity={0.9}
-      onPress={() => router.push({ pathname: '/video/[id]', params: { id: item.id } })}
-      onLongPress={() => openPreview(item)}
-      delayLongPress={300}
-    >
-      <Image source={{ uri: item.thumbnail }} style={styles.snapThumbnail} />
+    if (diff < 60) return `${Math.floor(diff)}s ago`;
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    return `${Math.floor(diff / 86400)}d ago`;
+  };
 
-      <LinearGradient
-        colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.9)']}
-        style={styles.snapOverlay}
-      />
+  const renderSnap = ({ item }: { item: any }) => {
 
-      <View style={styles.categoryBadge}>
-        <Text style={styles.categoryBadgeText}>{item.category}</Text>
-      </View>
+    console.log("posts: ", item);
 
-      <View style={styles.snapUserInfo}>
-        <Image source={{ uri: item.avatar }} style={styles.snapAvatar} />
-        <View style={styles.snapUserText}>
-          <Text style={styles.snapUsername}>{item.user}</Text>
-          <Text style={styles.snapTitle} numberOfLines={2}>{item.title}</Text>
+    const thumbnail = item.videoUrl;
+    const category = item.category;
+    const avatar = item.user?.profile?.avatar || "https://via.placeholder.com/150";
+    const username = item.user?.profile?.username || "Unknown";
+    const title = item.caption;
+    const views = item.views;
+    const createdAt = item.createdAt;
+
+    const timeAgo = getTimeAgo(createdAt);
+
+
+    return (
+      <TouchableOpacity style={styles.snapCard} onPress={() => router.push(`/video/${item.id}`)} activeOpacity={0.9}>
+        <Video source={{ uri: thumbnail }} style={styles.snapThumbnail} />
+        <View style={styles.snapOverlay} />
+
+        <View style={styles.categoryBadge}>
+          <Text style={styles.categoryBadgeText}>{category}</Text>
         </View>
-        {!item.isFollowing && (
-          <TouchableOpacity style={styles.followBadge}>
-            <Ionicons name="add" size={16} color="#fff" />
-          </TouchableOpacity>
-        )}
-      </View>
 
-      <View style={styles.snapStats}>
-        <View style={styles.snapStat}>
-          <Ionicons name="play-circle" size={16} color="#fff" />
-          <Text style={styles.snapStatText}>{item.views}</Text>
+        {/* User Info */}
+        <View style={styles.snapUserInfo}>
+          <Image source={{ uri: avatar }} style={styles.snapAvatar} />
+          <View style={styles.snapUserText}>
+            <Text style={styles.snapUsername}>{username}</Text>
+            <Text style={styles.snapTitle} numberOfLines={2}>{title}</Text>
+          </View>
         </View>
-        <View style={styles.snapStat}>
-          <Ionicons name="time-outline" size={16} color="#fff" />
-          <Text style={styles.snapStatText}>{item.timeAgo}</Text>
+
+        {/* Stats */}
+        <View style={styles.snapStats}>
+          <View style={styles.snapStat}>
+            <Ionicons name="play-circle" size={16} color="#fff" />
+            <Text style={styles.snapStatText}>{views}</Text>
+          </View>
+          <View style={styles.snapStat}>
+            <Ionicons name="time-outline" size={16} color="#fff" />
+            <Text style={styles.snapStatText}>{timeAgo}</Text>
+          </View>
         </View>
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
-
       {/* Header */}
-      <BlurView intensity={90} tint="dark" style={styles.header}>
+      <BlurView intensity={80} tint="dark" style={styles.header}>
         <View style={styles.headerTop}>
           <Text style={styles.headerTitle}>Discover</Text>
           <View style={styles.headerButtons}>
-            <TouchableOpacity style={styles.headerButton} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.headerButton}>
               <Ionicons name="scan-outline" size={24} color="#fff" />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.headerButton} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.headerButton}>
               <Ionicons name="notifications-outline" size={24} color="#fff" />
               <View style={styles.notificationDot} />
             </TouchableOpacity>
           </View>
         </View>
 
+        {/* Search Bar */}
         <View style={styles.searchContainer}>
           <Ionicons name="search" size={20} color="rgba(255,255,255,0.5)" style={styles.searchIcon} />
           <TextInput
@@ -276,7 +236,7 @@ export default function Snaps() {
             onChangeText={setSearchQuery}
           />
           {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')} activeOpacity={0.7}>
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
               <Ionicons name="close-circle" size={20} color="rgba(255,255,255,0.5)" />
             </TouchableOpacity>
           )}
@@ -291,7 +251,7 @@ export default function Snaps() {
         <View style={styles.storiesSection}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Stories</Text>
-            <TouchableOpacity activeOpacity={0.7}>
+            <TouchableOpacity>
               <Text style={styles.seeAllText}>See all</Text>
             </TouchableOpacity>
           </View>
@@ -317,7 +277,7 @@ export default function Snaps() {
         {/* Snaps Grid */}
         <View style={styles.snapsGrid}>
           <FlatList
-            data={filteredSnaps}
+            data={posts?.data}
             renderItem={renderSnap}
             keyExtractor={(item) => item.id}
             numColumns={2}
@@ -333,184 +293,6 @@ export default function Snaps() {
           />
         </View>
       </ScrollView>
-
-      {/* Premium Preview Modal */}
-      <Modal
-        visible={!!previewVideo}
-        transparent
-        animationType="none"
-        onRequestClose={closeModal}
-        statusBarTranslucent
-      >
-        <View style={styles.modalContainer}>
-          {/* Backdrop with Blur */}
-          <Animated.View style={[styles.modalBackdrop, { opacity: fadeAnim }]}>
-            <BlurView intensity={95} tint="dark" style={StyleSheet.absoluteFill}>
-              <TouchableOpacity
-                style={StyleSheet.absoluteFill}
-                onPress={closeModal}
-                activeOpacity={1}
-              />
-            </BlurView>
-          </Animated.View>
-
-          {/* Modal Content */}
-          {previewVideo && (
-            <Animated.View
-              style={[
-                styles.modalContent,
-                {
-                  transform: [
-                    { scale: scaleAnim },
-                    { translateY: slideAnim },
-                  ],
-                  opacity: fadeAnim,
-                },
-              ]}
-            >
-              {/* Close Button */}
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={closeModal}
-                activeOpacity={0.8}
-              >
-                <BlurView intensity={80} tint="dark" style={styles.closeButtonBlur}>
-                  <Ionicons name="close" size={26} color="#fff" />
-                </BlurView>
-              </TouchableOpacity>
-
-              {/* Video Preview Card */}
-              <View style={styles.videoCard}>
-                {/* Video Thumbnail */}
-                <View style={styles.videoPreview}>
-                  <Image
-                    source={{ uri: previewVideo.thumbnail }}
-                    style={styles.previewImage}
-                    resizeMode="cover"
-                  />
-
-                  {/* Play Button with Pulse Animation (Pulse animation is simulated with static styles here) */}
-                  <View style={styles.playButtonContainer}>
-                    <View style={styles.playPulse} />
-                    <View style={styles.playButton}>
-                      <LinearGradient
-                        colors={['rgba(94,92,230,0.9)', 'rgba(118,75,162,0.9)']}
-                        style={styles.playGradient}
-                      >
-                        <Ionicons name="play" size={40} color="#fff" />
-                      </LinearGradient>
-                    </View>
-                  </View>
-
-                  {/* Overlay Info */}
-                  <LinearGradient
-                    colors={['rgba(0,0,0,0.7)', 'rgba(0,0,0,0)', 'rgba(0,0,0,0.9)']}
-                    style={styles.videoOverlay}
-                  >
-                    {/* Top Info */}
-                    <View style={styles.topOverlayInfo}>
-                      <View style={styles.categoryTag}>
-                        <Text style={styles.categoryTagText}>{previewVideo.category}</Text>
-                      </View>
-                      <View style={styles.quickStats}>
-                        <View style={styles.quickStat}>
-                          <Ionicons name="eye" size={14} color="#fff" />
-                          <Text style={styles.quickStatText}>{previewVideo.views}</Text>
-                        </View>
-                        <View style={styles.quickStat}>
-                          <Ionicons name="time" size={14} color="#fff" />
-                          <Text style={styles.quickStatText}>{previewVideo.timeAgo}</Text>
-                        </View>
-                      </View>
-                    </View>
-                  </LinearGradient>
-                </View>
-
-                {/* Content Info */}
-                <BlurView intensity={80} tint="dark" style={styles.contentInfo}>
-                  {/* User Info */}
-                  <View style={styles.modalUserInfo}>
-                    <View style={styles.modalUserLeft}>
-                      <View style={styles.modalAvatarContainer}>
-                        <Image
-                          source={{ uri: previewVideo.avatar }}
-                          style={styles.modalAvatar}
-                        />
-                      </View>
-                      <View style={styles.modalUserDetails}>
-                        <Text style={styles.modalUsername}>{previewVideo.user}</Text>
-                        <Text style={styles.modalUserStats}>
-                          {previewVideo.likes} likes • {previewVideo.comments} comments
-                        </Text>
-                      </View>
-                    </View>
-                    {!previewVideo.isFollowing && (
-                      <TouchableOpacity style={styles.modalFollowButton} activeOpacity={0.8}>
-                        <LinearGradient
-                          colors={['rgba(94,92,230,0.25)', 'rgba(118,75,162,0.25)']}
-                          style={styles.modalFollowGradient}
-                        >
-                          <Ionicons name="add" size={16} color="#5e5ce6" />
-                          <Text style={styles.modalFollowText}>Follow</Text>
-                        </LinearGradient>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-
-                  {/* Title */}
-                  <Text style={styles.modalTitle} numberOfLines={2}>
-                    {previewVideo.title}
-                  </Text>
-
-                  {/* Action Buttons */}
-                  <View style={styles.actionButtons}>
-                    <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}>
-                      <BlurView intensity={60} tint="dark" style={styles.actionBtnBlur}>
-                        <Ionicons name="heart-outline" size={22} color="#fff" />
-                        <Text style={styles.actionBtnText}>Like</Text>
-                      </BlurView>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}>
-                      <BlurView intensity={60} tint="dark" style={styles.actionBtnBlur}>
-                        <Ionicons name="share-social-outline" size={22} color="#fff" />
-                        <Text style={styles.actionBtnText}>Share</Text>
-                      </BlurView>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}>
-                      <BlurView intensity={60} tint="dark" style={styles.actionBtnBlur}>
-                        <Ionicons name="bookmark-outline" size={22} color="#fff" />
-                        <Text style={styles.actionBtnText}>Save</Text>
-                      </BlurView>
-                    </TouchableOpacity>
-                  </View>
-
-                  {/* Watch Full Video Button */}
-                  <TouchableOpacity
-                    style={styles.watchButton}
-                    onPress={() => {
-                      closeModal();
-                      router.push({ pathname: '/video/[id]', params: { id: previewVideo.id } });
-                    }}
-                    activeOpacity={0.9}
-                  >
-                    <LinearGradient
-                      colors={['#667eea', '#764ba2']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.watchButtonGradient}
-                    >
-                      <Text style={styles.watchButtonText}>Watch Full Video</Text>
-                      <Ionicons name="arrow-forward" size={20} color="#fff" />
-                    </LinearGradient>
-                  </TouchableOpacity>
-                </BlurView>
-              </View>
-            </Animated.View>
-          )}
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -526,13 +308,12 @@ const styles = StyleSheet.create({
 
   // Header
   header: {
-    paddingTop: Platform.OS === 'ios' ? 60 : 50,
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
     paddingBottom: 16,
     paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
+    borderBottomColor: 'rgba(255,255,255,0.1)',
     overflow: 'hidden',
-    backgroundColor: 'rgba(0,0,0,0.5)',
   },
   headerTop: {
     flexDirection: 'row',
@@ -544,7 +325,6 @@ const styles = StyleSheet.create({
     fontSize: 34,
     fontWeight: '800',
     color: '#fff',
-    letterSpacing: -1,
   },
   headerButtons: {
     flexDirection: 'row',
@@ -554,9 +334,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -577,12 +355,12 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 16,
     paddingHorizontal: 16,
-    paddingVertical: 1,
+    paddingVertical: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   searchIcon: {
     marginRight: 10,
@@ -591,12 +369,11 @@ const styles = StyleSheet.create({
     flex: 1,
     color: '#fff',
     fontSize: 16,
-    fontWeight: '500',
   },
 
   // Stories
   storiesSection: {
-    paddingVertical: 24,
+    paddingVertical: 20,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -628,16 +405,14 @@ const styles = StyleSheet.create({
     height: 72,
     borderRadius: 36,
     padding: 3,
+    marginBottom: 8,
     position: 'relative',
     backgroundColor: 'rgba(255,255,255,0.1)',
   },
-  storyRingGradient: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 3,
+  storyCircleActive: {
+    background: 'linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)',
+    borderWidth: 2,
+    borderColor: '#5e5ce6',
   },
   storyCircleAdd: {
     borderWidth: 2,
@@ -651,7 +426,7 @@ const styles = StyleSheet.create({
   },
   addStoryBadge: {
     position: 'absolute',
-    bottom: 18,
+    bottom: -2,
     right: -2,
     width: 24,
     height: 24,
@@ -664,11 +439,11 @@ const styles = StyleSheet.create({
   },
   liveBadge: {
     position: 'absolute',
-    bottom: 2,
+    bottom: 0,
     left: 0,
     right: 0,
     backgroundColor: '#ff3b5c',
-    paddingVertical: 3,
+    paddingVertical: 2,
     borderRadius: 10,
     alignItems: 'center',
   },
@@ -676,29 +451,27 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 10,
     fontWeight: '800',
-    letterSpacing: 0.5,
   },
   storyUsername: {
     fontSize: 12,
     color: 'rgba(255,255,255,0.8)',
     fontWeight: '600',
     textAlign: 'center',
-    marginTop: 8,
   },
 
   // Categories
   categoriesContainer: {
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingBottom: 16,
     gap: 10,
   },
   categoryChip: {
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: 'rgba(255,255,255,0.1)',
     marginRight: 10,
   },
   categoryChipActive: {
@@ -736,15 +509,15 @@ const styles = StyleSheet.create({
   },
   snapOverlay: {
     ...StyleSheet.absoluteFillObject,
+    background: 'linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.8) 100%)',
   },
   categoryBadge: {
     position: 'absolute',
     top: 12,
     left: 12,
     backgroundColor: 'rgba(0,0,0,0.7)',
-    // backdropFilter: 'blur(10px)', // Web/iOS only, use BlurView in Modal
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingVertical: 5,
     borderRadius: 12,
   },
   categoryBadgeText: {
@@ -796,15 +569,14 @@ const styles = StyleSheet.create({
     left: 12,
     right: 12,
     flexDirection: 'row',
-    gap: 10,
+    gap: 12,
   },
   snapStat: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    // backdropFilter: 'blur(10px)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     paddingHorizontal: 8,
-    paddingVertical: 5,
+    paddingVertical: 4,
     borderRadius: 12,
     gap: 4,
   },
@@ -832,246 +604,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: 'rgba(255,255,255,0.5)',
     textAlign: 'center',
-  },
-
-  // Modal
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  modalContent: {
-    width: width - 40,
-    maxWidth: 420,
-    maxHeight: height * 0.85,
-  },
-  closeButton: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    zIndex: 10,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    overflow: 'hidden',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  // DAVOMI BU YERDA:
-  closeButtonBlur: {
-    width: '100%',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.15)',
-  },
-  videoCard: {
-    borderRadius: 25,
-    overflow: 'hidden',
-    backgroundColor: '#111',
-    // Shadow qo'shimcha animatsiya effekti uchun
-    shadowColor: '#5e5ce6',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-  videoPreview: {
-    width: '100%',
-    height: (width - 40) * 1.25, // Kattaroq nisbat
-    position: 'relative',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  previewImage: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  videoOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'space-between',
-    padding: 16,
-  },
-  topOverlayInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: Platform.OS === 'ios' ? 10 : 0, // Close button tufayli o'rnatilgan
-  },
-  categoryTag: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 15,
-  },
-  categoryTagText: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-  },
-  quickStats: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  quickStat: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  quickStatText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  playButtonContainer: {
-    position: 'relative',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  playPulse: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    position: 'absolute',
-  },
-  playButton: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 10,
-  },
-  playGradient: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  // Content Info Section
-  contentInfo: {
-    padding: 20,
-    borderBottomLeftRadius: 25,
-    borderBottomRightRadius: 25,
-    backgroundColor: 'rgba(10,10,10,0.8)',
-    overflow: 'hidden',
-  },
-  modalUserInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 15,
-  },
-  modalUserLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  modalAvatarContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    padding: 2,
-    borderWidth: 2,
-    borderColor: '#5e5ce6',
-  },
-  modalAvatar: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 20,
-  },
-  modalUserDetails: {
-    marginLeft: 10,
-  },
-  modalUsername: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  modalUserStats: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  modalFollowButton: {
-    borderRadius: 20,
-    overflow: 'hidden',
-  },
-  modalFollowGradient: {
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(94,92,230,0.5)',
-  },
-  modalFollowText: {
-    color: '#5e5ce6',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  modalTitle: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '800',
-    marginBottom: 20,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-    gap: 10,
-  },
-  actionBtn: {
-    flex: 1,
-    borderRadius: 15,
-    overflow: 'hidden',
-  },
-  actionBtnBlur: {
-    width: '100%',
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  actionBtnText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  watchButton: {
-    width: '100%',
-    borderRadius: 18,
-    overflow: 'hidden',
-    shadowColor: '#667eea',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  watchButtonGradient: {
-    paddingVertical: 14,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 10,
-  },
-  watchButtonText: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '800',
-    letterSpacing: 0.5,
   },
 });

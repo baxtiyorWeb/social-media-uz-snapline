@@ -6,7 +6,7 @@ workflows:
 
     environment:
       vars:
-        EXPO_TOKEN: $EXPO_TOKEN # Codemagic dashboardda qo‘shilgan
+        EXPO_TOKEN: $EXPO_TOKEN
       flutter: stable
       xcode: latest
 
@@ -29,5 +29,5 @@ workflows:
           eas build --platform ios --profile production --non-interactive
 
     artifacts:
-      - ./android/app/build/outputs/**/*.aab
-      - ./ios/build/**/*.ipa
+      - ./build/android/**/*.aab
+      - ./build/ios/**/*.ipa

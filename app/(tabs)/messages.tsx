@@ -1,8 +1,12 @@
+import api from '@/config/api';
+import { useCheckAuth } from '@/hooks/check-auth';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
   Dimensions,
   FlatList,
   Image,
@@ -11,163 +15,313 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 
 const { width } = Dimensions.get('window');
+const API_URL = 'http://192.168.100.89:4040/chat';
 
-interface Message {
-  id: string;
-  user: string;
-  avatar: string;
-  lastMessage: string;
-  time: string;
-  unread: number;
-  online: boolean;
-  typing?: boolean;
+interface Chat {
+  id: number;
+  isGroup: boolean;
+  title?: string;
+  avatar?: string;
+  participants: {
+    id: number;
+    name: string;
+    avatar: string;
+    isAdmin: boolean;
+  }[];
+  lastMessage?: {
+    id: number;
+    text: string;
+    sender: string;
+    createdAt: string;
+    mediaType?: string;
+  } | null;
+  unreadCount: number;
+  isPinned?: boolean;
+  isBlocked?: boolean;
 }
-
-const MOCK_MESSAGES: Message[] = [
-  {
-    id: '1',
-    user: 'Sarah Johnson',
-    avatar: 'https://i.pravatar.cc/150?img=1',
-    lastMessage: 'Hey! Did you see my latest video? 🎥',
-    time: '2m',
-    unread: 3,
-    online: true,
-  },
-  {
-    id: '2',
-    user: 'Mike Chen',
-    avatar: 'https://i.pravatar.cc/150?img=2',
-    lastMessage: 'That was amazing! 🔥',
-    time: '15m',
-    unread: 0,
-    online: true,
-    typing: true,
-  },
-  {
-    id: '3',
-    user: 'Emma Wilson',
-    avatar: 'https://i.pravatar.cc/150?img=3',
-    lastMessage: 'Can we collaborate on a video?',
-    time: '1h',
-    unread: 1,
-    online: false,
-  },
-  {
-    id: '4',
-    user: 'Alex Martinez',
-    avatar: 'https://i.pravatar.cc/150?img=4',
-    lastMessage: 'Thanks for the shoutout! 🙏',
-    time: '3h',
-    unread: 0,
-    online: false,
-  },
-  {
-    id: '5',
-    user: 'Jessica Lee',
-    avatar: 'https://i.pravatar.cc/150?img=5',
-    lastMessage: 'Love your content style 💜',
-    time: '5h',
-    unread: 5,
-    online: true,
-  },
-  {
-    id: '6',
-    user: 'David Kim',
-    avatar: 'https://i.pravatar.cc/150?img=6',
-    lastMessage: 'When is the next livestream?',
-    time: '1d',
-    unread: 0,
-    online: false,
-  },
-  {
-    id: '7',
-    user: 'Lisa Anderson',
-    avatar: 'https://i.pravatar.cc/150?img=7',
-    lastMessage: 'Check your DM! 📩',
-    time: '2d',
-    unread: 2,
-    online: false,
-  },
-  {
-    id: '8',
-    user: 'Tom Brown',
-    avatar: 'https://i.pravatar.cc/150?img=8',
-    lastMessage: 'Amazing editing! What app do you use?',
-    time: '3d',
-    unread: 0,
-    online: true,
-  },
-];
 
 export default function Messages() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTab, setSelectedTab] = useState<'all' | 'unread'>('all');
+  const [chats, setChats] = useState<Chat[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [pinnedChats, setPinnedChats] = useState<number[]>([]);
+  const [blockedChats, setBlockedChats] = useState<number[]>([]);
   const router = useRouter();
 
-  const filteredMessages = MOCK_MESSAGES.filter((message) => {
-    const matchesSearch = message.user.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesTab = selectedTab === 'all' || (selectedTab === 'unread' && message.unread > 0);
-    return matchesSearch && matchesTab;
+  const { user } = useCheckAuth()
+
+  // currentUserId — frontend state yoki context orqali olinadi
+  const loadChats = useCallback(async (page = 1, limit = 50) => {
+    try {
+      const response = await api.get(`/chat?page=${page}&limit=${limit}`);
+      const currentUserId = user?.id;
+
+      if (!currentUserId) {
+        console.warn("User ID is not yet available, skipping chat load.");
+        setLoading(false); // Loading ni bekor qilish
+        setRefreshing(false);
+        return;
+      }
+      console.log("currentUserId: ", currentUserId);
+
+
+      const formattedChats = response.data.data.map((chat: any) => {
+        const otherParticipant = chat.participants.find((p: any) => p.id !== currentUserId);
+
+        return {
+          id: chat.id,
+          isGroup: chat.isGroup,
+          title: chat.title || otherParticipant?.name || "No name",
+          avatar: chat.avatar || otherParticipant?.avatar || "",
+          participants: chat.participants,
+          lastMessage: chat.lastMessage,
+          unreadCount: chat.unreadCount,
+        };
+      });
+
+      setChats(formattedChats);
+    } catch (error) {
+      console.error('Error loading chats:', error);
+      Alert.alert('Xato', 'Chatlarni yuklashda muammo yuz berdi');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [user?.id]);
+
+
+
+  useEffect(() => {
+    loadChats();
+  }, [loadChats, user?.id]);
+
+  const filteredChats = chats.filter((chat) => {
+    const matchesSearch = chat.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      chat.participants.some(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
+    const matchesTab = selectedTab === 'all' || (selectedTab === 'unread' && chat.unreadCount > 0);
+    const notBlocked = !blockedChats.includes(chat.id);
+    return matchesSearch && matchesTab && notBlocked;
   });
 
-  const openChat = (message: Message) => {
-    // Navigate to chat screen with user data
+  // Pinned chatlarni oldin ko'rsatish
+  const sortedChats = filteredChats.sort((a, b) => {
+    const aPinned = pinnedChats.includes(a.id) ? 0 : 1;
+    const bPinned = pinnedChats.includes(b.id) ? 0 : 1;
+    return aPinned - bPinned;
+  });
+
+  const openChat = (chat: Chat) => {
+    if (blockedChats.includes(chat.id)) {
+      Alert.alert('Xato', 'Bu chat blokiylangan');
+      return;
+    }
+
+    const otherUser = chat.participants[0];
+
     router.push({
       pathname: '/chat/[id]',
       params: {
-        id: message.id,
-        user: message.user,
-        avatar: message.avatar,
-        online: message.online.toString(),
+        id: chat.id.toString(),
+        user: chat.title || 'User',
+        avatar: chat.avatar,
+        online: 'true',
+        userId: otherUser?.id?.toString() || '0',
       },
     });
   };
 
-  const renderMessageItem = ({ item }: { item: Message }) => (
-    <TouchableOpacity
-      style={styles.messageCard}
-      activeOpacity={0.7}
-      onPress={() => openChat(item)}
-    >
-      <View style={styles.avatarContainer}>
-        <Image source={{ uri: item.avatar }} style={styles.avatar} />
-        {item.online && <View style={styles.onlineBadge} />}
-      </View>
+  // Delete chat
+  const handleDeleteChat = (chat: Chat) => {
+    Alert.alert(
+      "Chatni O'chirish",
+      `"${chat.title}" chatni o'chirishni xohlaysizmi? Bu amalni qaytara olmaysiz.`,
+      [
+        { text: 'Bekor qilish', style: 'cancel' },
+        {
+          text: "O'chirish",
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.delete(`/chat/${chat.id}`);
+              setChats(chats.filter(c => c.id !== chat.id));
+              Alert.alert('Muvaffaqiyat', 'Chat o\'chirildi');
+            } catch (error) {
+              console.error('Error deleting chat:', error);
+              Alert.alert('Xato', "Chat o'chirishda muammo yuz berdi");
+            }
+          },
+        },
+      ]
+    );
+  };
 
-      <View style={styles.messageContent}>
-        <View style={styles.messageHeader}>
-          <Text style={styles.userName} numberOfLines={1}>
-            {item.user}
-          </Text>
-          <Text style={styles.timeText}>{item.time}</Text>
+  // Pin/Unpin chat
+  const handlePinChat = (chat: Chat) => {
+    if (pinnedChats.includes(chat.id)) {
+      setPinnedChats(pinnedChats.filter(id => id !== chat.id));
+      Alert.alert('Muvaffaqiyat', "Chat ushlab qo'yish bekor qilindi");
+    } else {
+      setPinnedChats([...pinnedChats, chat.id]);
+      Alert.alert('Muvaffaqiyat', 'Chat ushlab qo\'yildi');
+    }
+  };
+
+  // Block/Unblock chat
+  const handleBlockChat = (chat: Chat) => {
+    if (blockedChats.includes(chat.id)) {
+      setBlockedChats(blockedChats.filter(id => id !== chat.id));
+      Alert.alert('Muvaffaqiyat', 'Chat blokirovkasi bekor qilindi');
+    } else {
+      setBlockedChats([...blockedChats, chat.id]);
+      Alert.alert('Muvaffaqiyat', 'Chat blokiylandi');
+    }
+  };
+
+  // Context menu
+  const showChatMenu = (chat: Chat) => {
+    const isPinned = pinnedChats.includes(chat.id);
+    const isBlocked = blockedChats.includes(chat.id);
+
+    const options = [
+      {
+        text: isPinned ? "Ushlab qo'yishni bekor qilish" : "Ushlab qo'yish",
+        icon: isPinned ? 'pin' : 'pin-outline',
+        onPress: () => handlePinChat(chat),
+      },
+      {
+        text: isBlocked ? 'Blokni bekor qilish' : 'Blokla',
+        icon: isBlocked ? 'checkmark-circle' : 'ban',
+        onPress: () => handleBlockChat(chat),
+      },
+      {
+        text: "O'chirish",
+        icon: 'trash-outline',
+        isDangerous: true,
+        onPress: () => handleDeleteChat(chat),
+      },
+    ];
+
+    Alert.alert(
+      'Chat Amallari',
+      chat.title,
+      [
+        ...options.map(opt => ({
+          text: opt.text,
+          style: opt.isDangerous ? 'destructive' as const : 'default' as const,
+          onPress: opt.onPress,
+        })),
+        { text: 'Bekor qilish', style: 'cancel' as const },
+      ]
+    );
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadChats();
+  };
+
+  const renderChatItem = ({ item }: { item: Chat }) => {
+    const lastMessageText = item.lastMessage?.text || 'No messages yet';
+    const lastMessageTime = item.lastMessage?.createdAt
+      ? new Date(item.lastMessage.createdAt).toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      })
+      : '';
+
+    const isPinned = pinnedChats.includes(item.id);
+    const isBlocked = blockedChats.includes(item.id);
+
+    return (
+      <TouchableOpacity
+        style={[
+          styles.messageCard,
+          isBlocked && styles.blockedCard,
+          isPinned && styles.pinnedCard,
+        ]}
+        activeOpacity={0.7}
+        onPress={() => openChat(item)}
+        onLongPress={() => showChatMenu(item)}
+        delayLongPress={400}
+      >
+        <View style={styles.avatarContainer}>
+          <Image
+            source={{ uri: item.avatar }}
+            style={[styles.avatar, isBlocked && styles.blockedAvatar]}
+          />
+          {!isBlocked && <View style={styles.onlineBadge} />}
+          {isPinned && (
+            <View style={styles.pinBadge}>
+              <Ionicons name="pin" size={12} color="#fff" />
+            </View>
+          )}
         </View>
 
-        <View style={styles.messageFooter}>
-          {item.typing ? (
-            <View style={styles.typingContainer}>
-              <View style={styles.typingDot} />
-              <View style={[styles.typingDot, styles.typingDotDelay1]} />
-              <View style={[styles.typingDot, styles.typingDotDelay2]} />
-              <Text style={styles.typingText}>typing...</Text>
+        <View style={[styles.messageContent, isBlocked && styles.blockedContent]}>
+          <View style={styles.messageHeader}>
+            <View style={styles.titleContainer}>
+              <Text style={styles.userName} numberOfLines={1}>
+                {item.title}
+              </Text>
+              {isPinned && (
+                <Ionicons name="pin" size={14} color="#5e5ce6" style={{ marginLeft: 6 }} />
+              )}
             </View>
-          ) : (
-            <Text style={[styles.lastMessage, item.unread > 0 && styles.unreadMessage]} numberOfLines={1}>
-              {item.lastMessage}
+            <Text style={styles.timeText}>{lastMessageTime}</Text>
+          </View>
+
+          <View style={styles.messageFooter}>
+            <Text
+              style={[
+                styles.lastMessage,
+                item.unreadCount > 0 && styles.unreadMessage,
+                isBlocked && styles.blockedMessage,
+              ]}
+              numberOfLines={1}
+            >
+              {isBlocked ? 'Chat blokiylangan' : lastMessageText}
             </Text>
-          )}
-          {item.unread > 0 && (
-            <View style={styles.unreadBadge}>
-              <Text style={styles.unreadText}>{item.unread > 9 ? '9+' : item.unread}</Text>
-            </View>
-          )}
+            {item.unreadCount > 0 && !isBlocked && (
+              <View style={styles.unreadBadge}>
+                <Text style={styles.unreadText}>
+                  {item.unreadCount > 9 ? '9+' : item.unreadCount}
+                </Text>
+              </View>
+            )}
+          </View>
         </View>
+
+        {/* Action buttons (revealed on long press) */}
+        <View style={styles.actionIcons}>
+          <TouchableOpacity
+            style={styles.actionIcon}
+            onPress={() => handlePinChat(item)}
+          >
+            <Ionicons
+              name={isPinned ? 'pin' : 'pin-outline'}
+              size={20}
+              color={isPinned ? '#5e5ce6' : 'rgba(255,255,255,0.5)'}
+            />
+          </TouchableOpacity>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <ActivityIndicator size="large" color="#5e5ce6" />
       </View>
-    </TouchableOpacity>
-  );
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -182,7 +336,12 @@ export default function Messages() {
 
         {/* Search Bar */}
         <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color="rgba(255,255,255,0.5)" style={styles.searchIcon} />
+          <Ionicons
+            name="search"
+            size={20}
+            color="rgba(255,255,255,0.5)"
+            style={styles.searchIcon}
+          />
           <TextInput
             style={styles.searchInput}
             placeholder="Search messages..."
@@ -203,33 +362,41 @@ export default function Messages() {
             style={[styles.tab, selectedTab === 'all' && styles.activeTab]}
             onPress={() => setSelectedTab('all')}
           >
-            <Text style={[styles.tabText, selectedTab === 'all' && styles.activeTabText]}>All</Text>
+            <Text style={[styles.tabText, selectedTab === 'all' && styles.activeTabText]}>
+              All
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.tab, selectedTab === 'unread' && styles.activeTab]}
             onPress={() => setSelectedTab('unread')}
           >
-            <Text style={[styles.tabText, selectedTab === 'unread' && styles.activeTabText]}>Unread</Text>
-            {MOCK_MESSAGES.filter((m) => m.unread > 0).length > 0 && (
+            <Text style={[styles.tabText, selectedTab === 'unread' && styles.activeTabText]}>
+              Unread
+            </Text>
+            {chats.filter((m) => m.unreadCount > 0).length > 0 && (
               <View style={styles.tabBadge}>
-                <Text style={styles.tabBadgeText}>{MOCK_MESSAGES.filter((m) => m.unread > 0).length}</Text>
+                <Text style={styles.tabBadgeText}>
+                  {chats.filter((m) => m.unreadCount > 0).length}
+                </Text>
               </View>
             )}
           </TouchableOpacity>
         </View>
       </BlurView>
 
-      {/* Messages List */}
+      {/* Chats List */}
       <FlatList
-        data={filteredMessages}
-        keyExtractor={(item) => item.id}
-        renderItem={renderMessageItem}
+        data={sortedChats}
+        keyExtractor={(item) => item.id.toString()}
+        renderItem={renderChatItem}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Ionicons name="chatbubbles-outline" size={80} color="rgba(255,255,255,0.3)" />
-            <Text style={styles.emptyTitle}>No messages found</Text>
+            <Text style={styles.emptyTitle}>No chats found</Text>
             <Text style={styles.emptySubtitle}>
               {searchQuery ? 'Try a different search' : 'Start a conversation!'}
             </Text>
@@ -251,6 +418,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
+  },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 
   // Header
@@ -283,7 +454,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(94,92,230,0.4)',
   },
-
 
   searchContainer: {
     flexDirection: 'row',
@@ -358,7 +528,27 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.03)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center',
   },
+  pinnedCard: {
+    backgroundColor: 'rgba(94,92,230,0.08)',
+    borderColor: 'rgba(94,92,230,0.2)',
+  },
+  blockedCard: {
+    backgroundColor: 'rgba(255,59,92,0.05)',
+    borderColor: 'rgba(255,59,92,0.15)',
+  },
+  blockedContent: {
+    opacity: 0.6,
+  },
+  blockedAvatar: {
+    opacity: 0.5,
+  },
+  blockedMessage: {
+    fontStyle: 'italic',
+    color: 'rgba(255,59,92,0.8)',
+  },
+
   avatarContainer: {
     position: 'relative',
     marginRight: 14,
@@ -381,6 +571,20 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#000',
   },
+  pinBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#5e5ce6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#000',
+  },
+
   messageContent: {
     flex: 1,
     justifyContent: 'center',
@@ -390,6 +594,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 6,
+  },
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
   },
   userName: {
     fontSize: 17,
@@ -431,30 +640,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  // Typing Indicator
-  typingContainer: {
+  actionIcons: {
     flexDirection: 'row',
+    gap: 8,
+  },
+  actionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.05)',
     alignItems: 'center',
-    gap: 4,
-  },
-  typingDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#5e5ce6',
-    opacity: 0.6,
-  },
-  typingDotDelay1: {
-    opacity: 0.4,
-  },
-  typingDotDelay2: {
-    opacity: 0.2,
-  },
-  typingText: {
-    fontSize: 14,
-    color: '#5e5ce6',
-    fontWeight: '600',
-    marginLeft: 4,
+    justifyContent: 'center',
   },
 
   // Empty State
