@@ -1,63 +1,94 @@
-import { useCheckAuth } from '@/hooks/check-auth';
-import { Ionicons } from '@expo/vector-icons';
-import { Video } from 'expo-av';
-import { BlurView } from 'expo-blur';
-import { router } from 'expo-router';
-import React, { useState } from 'react';
+import { useCheckAuth } from "@/hooks/check-auth";
+import { Ionicons } from "@expo/vector-icons";
+import { Video } from "expo-av";
+import { BlurView } from "expo-blur";
+import { router } from "expo-router";
+import React, { useCallback, useState } from "react";
 import {
   Dimensions,
   FlatList,
   Image,
   Platform,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-} from 'react-native';
+} from "react-native";
 
-const { width } = Dimensions.get('window');
-
-
-
+const { width } = Dimensions.get("window");
 
 const HIGHLIGHTS = [
-  { id: '1', title: 'Travel', image: 'https://i.pravatar.cc/150?img=20', color: '#FF6B6B' },
-  { id: '2', title: 'Food', image: 'https://i.pravatar.cc/150?img=21', color: '#4ECDC4' },
-  { id: '3', title: 'Fitness', image: 'https://i.pravatar.cc/150?img=22', color: '#95E1D3' },
-  { id: '4', title: 'Music', image: 'https://i.pravatar.cc/150?img=23', color: '#F38181' },
-  { id: '5', title: 'Art', image: 'https://i.pravatar.cc/150?img=24', color: '#AA96DA' },
+  {
+    id: "1",
+    title: "Travel",
+    image: "https://i.pravatar.cc/150?img=20",
+    color: "#FF6B6B",
+  },
+  {
+    id: "2",
+    title: "Food",
+    image: "https://i.pravatar.cc/150?img=21",
+    color: "#4ECDC4",
+  },
+  {
+    id: "3",
+    title: "Fitness",
+    image: "https://i.pravatar.cc/150?img=22",
+    color: "#95E1D3",
+  },
+  {
+    id: "4",
+    title: "Music",
+    image: "https://i.pravatar.cc/150?img=23",
+    color: "#F38181",
+  },
+  {
+    id: "5",
+    title: "Art",
+    image: "https://i.pravatar.cc/150?img=24",
+    color: "#AA96DA",
+  },
 ];
 
 export default function Profile() {
-  const [activeTab, setActiveTab] = useState<'videos' | 'liked' | 'saved'>('videos');
+  const [activeTab, setActiveTab] = useState<"videos" | "liked" | "saved">(
+    "videos"
+  );
   const [isFollowing, setIsFollowing] = useState(false);
-  const { user } = useCheckAuth()
+  const [refreshing, setRefreshing] = useState(false);
 
+  const { user, refetchUser } = useCheckAuth(); // useCheckAuth hookda refetchUser bo'lishi kerak
 
-
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refetchUser(); // user datani qayta yuklaymiz
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
 
   const STATS = [
-    { label: 'Videos', value: user?.posts?.length },
-    { label: 'Followers', value: `${user?.followers?.length}` },
-    { label: 'Following', value: `${user?.following?.length}` },
-    { label: 'Likes', value: '8.7M' },
+    { label: "Videos", value: user?.posts?.length },
+    { label: "Followers", value: `${user?.followers?.length}` },
+    { label: "Following", value: `${user?.following?.length}` },
+    { label: "Likes", value: "8.7M" },
   ];
+
   const renderVideoItem = ({ item, index }: { item: any; index: number }) => (
     <TouchableOpacity
       style={[styles.videoCard, index % 3 !== 2 && styles.videoCardMargin]}
       activeOpacity={0.9}
-      onPress={() => {
-        // VIDEO DETAIL PAGE-GA O'TISH
-        router.push(`/video/${item.id}`);
-      }}
+      onPress={() => router.push(`/video/${item.id}`)}
     >
       <Video
-        source={{ uri: item.videoUrl || 'https://via.placeholder.com/300x450' }}
+        source={{ uri: item.videoUrl || "https://via.placeholder.com/300x450" }}
         style={styles.videoThumbnail}
       />
-
-      {/* Gradient Overlay */}
       <View style={styles.videoOverlay}>
         <View style={styles.videoStats}>
           <View style={styles.videoStat}>
@@ -66,13 +97,15 @@ export default function Profile() {
           </View>
         </View>
         <View style={styles.videoDuration}>
-          <Text style={styles.videoDurationText}>{item.duration || '0:30'}</Text>
+          <Text style={styles.videoDurationText}>
+            {item.duration || "0:30"}
+          </Text>
         </View>
       </View>
     </TouchableOpacity>
   );
 
-  const renderHighlight = ({ item }: { item: typeof HIGHLIGHTS[0] }) => (
+  const renderHighlight = ({ item }: { item: (typeof HIGHLIGHTS)[0] }) => (
     <TouchableOpacity style={styles.highlightItem}>
       <View style={[styles.highlightCircle, { borderColor: item.color }]}>
         <Image source={{ uri: item.image }} style={styles.highlightImage} />
@@ -80,7 +113,9 @@ export default function Profile() {
           <Ionicons name="add" size={16} color="#fff" />
         </View>
       </View>
-      <Text style={styles.highlightTitle} numberOfLines={1}>{item.title}</Text>
+      <Text style={styles.highlightTitle} numberOfLines={1}>
+        {item.title}
+      </Text>
     </TouchableOpacity>
   );
 
@@ -89,6 +124,14 @@ export default function Profile() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#fff"
+            colors={["#5e5ce6"]}
+          />
+        }
       >
         {/* Header */}
         <BlurView intensity={80} tint="dark" style={styles.header}>
@@ -99,14 +142,16 @@ export default function Profile() {
             </View>
           </TouchableOpacity>
           <Text style={styles.username}>@{user?.profile?.username}</Text>
-          <TouchableOpacity style={styles.headerButton} onPress={() => router.push('/settings')}>
+          <TouchableOpacity
+            style={styles.headerButton}
+            onPress={() => router.push("/settings")}
+          >
             <Ionicons name="menu-outline" size={26} color="#fff" />
           </TouchableOpacity>
         </BlurView>
 
         {/* Profile Info */}
         <View style={styles.profileSection}>
-          {/* Avatar */}
           <View style={styles.avatarContainer}>
             <Image
               source={{ uri: user?.profile?.avatar }}
@@ -117,14 +162,14 @@ export default function Profile() {
             </View>
           </View>
 
-          {/* Name & Bio */}
-          <Text style={styles.displayName}>{user?.profile?.firstName}{" "} {user?.profile?.lastName}</Text>
+          <Text style={styles.displayName}>
+            {user?.profile?.firstName} {user?.profile?.lastName}
+          </Text>
           <Text style={styles.bio}>
-            Content Creator 🎥 | Digital Artist 🎨{'\n'}
+            Content Creator 🎥 | Digital Artist 🎨{"\n"}
             Making the world more creative ✨
           </Text>
 
-          {/* Stats */}
           <View style={styles.statsContainer}>
             {STATS.map((stat, index) => (
               <TouchableOpacity key={stat.label} style={styles.statItem}>
@@ -134,10 +179,12 @@ export default function Profile() {
             ))}
           </View>
 
-          {/* Action Buttons */}
           <View style={styles.actionButtons}>
             <TouchableOpacity
-              style={[styles.followButton, isFollowing && styles.followingButton]}
+              style={[
+                styles.followButton,
+                isFollowing && styles.followingButton,
+              ]}
               onPress={() => setIsFollowing(!isFollowing)}
             >
               <Ionicons
@@ -146,7 +193,7 @@ export default function Profile() {
                 color="#fff"
               />
               <Text style={styles.followButtonText}>
-                {isFollowing ? 'Following' : 'Follow'}
+                {isFollowing ? "Following" : "Follow"}
               </Text>
             </TouchableOpacity>
 
@@ -160,7 +207,6 @@ export default function Profile() {
             </TouchableOpacity>
           </View>
 
-          {/* Highlights/Stories */}
           <View style={styles.highlightsSection}>
             <FlatList
               data={HIGHLIGHTS}
@@ -176,43 +222,58 @@ export default function Profile() {
         {/* Tabs */}
         <BlurView intensity={60} tint="dark" style={styles.tabsContainer}>
           <TouchableOpacity
-            style={[styles.tab, activeTab === 'videos' && styles.activeTab]}
-            onPress={() => setActiveTab('videos')}
+            style={[styles.tab, activeTab === "videos" && styles.activeTab]}
+            onPress={() => setActiveTab("videos")}
           >
             <Ionicons
               name="grid"
               size={22}
-              color={activeTab === 'videos' ? '#fff' : 'rgba(255,255,255,0.5)'}
+              color={activeTab === "videos" ? "#fff" : "rgba(255,255,255,0.5)"}
             />
-            <Text style={[styles.tabText, activeTab === 'videos' && styles.activeTabText]}>
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === "videos" && styles.activeTabText,
+              ]}
+            >
               Videos
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.tab, activeTab === 'liked' && styles.activeTab]}
-            onPress={() => setActiveTab('liked')}
+            style={[styles.tab, activeTab === "liked" && styles.activeTab]}
+            onPress={() => setActiveTab("liked")}
           >
             <Ionicons
               name="heart"
               size={22}
-              color={activeTab === 'liked' ? '#fff' : 'rgba(255,255,255,0.5)'}
+              color={activeTab === "liked" ? "#fff" : "rgba(255,255,255,0.5)"}
             />
-            <Text style={[styles.tabText, activeTab === 'liked' && styles.activeTabText]}>
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === "liked" && styles.activeTabText,
+              ]}
+            >
               Liked
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.tab, activeTab === 'saved' && styles.activeTab]}
-            onPress={() => setActiveTab('saved')}
+            style={[styles.tab, activeTab === "saved" && styles.activeTab]}
+            onPress={() => setActiveTab("saved")}
           >
             <Ionicons
               name="bookmark"
               size={22}
-              color={activeTab === 'saved' ? '#fff' : 'rgba(255,255,255,0.5)'}
+              color={activeTab === "saved" ? "#fff" : "rgba(255,255,255,0.5)"}
             />
-            <Text style={[styles.tabText, activeTab === 'saved' && styles.activeTabText]}>
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === "saved" && styles.activeTabText,
+              ]}
+            >
               Saved
             </Text>
           </TouchableOpacity>
@@ -237,66 +298,64 @@ export default function Profile() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: "#000",
   },
   scrollContent: {
     paddingBottom: 100,
   },
-
   // Header
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingTop: Platform.OS === "ios" ? 60 : 40,
     paddingBottom: 16,
     paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
-    overflow: 'hidden',
+    borderBottomColor: "rgba(255,255,255,0.1)",
+    overflow: "hidden",
   },
   username: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#fff',
+    fontWeight: "700",
+    color: "#fff",
   },
   headerButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
+    backgroundColor: "rgba(255,255,255,0.08)",
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
   },
   notificationBadge: {
-    position: 'absolute',
+    position: "absolute",
     top: 8,
     right: 8,
-    backgroundColor: '#ff3b5c',
+    backgroundColor: "#ff3b5c",
     borderRadius: 10,
     width: 20,
     height: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 2,
-    borderColor: '#000',
+    borderColor: "#000",
   },
   notificationBadgeText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: "700",
   },
-
   // Profile Section
   profileSection: {
     paddingHorizontal: 20,
     paddingTop: 30,
     paddingBottom: 20,
-    alignItems: 'center',
+    alignItems: "center",
   },
   avatarContainer: {
-    position: 'relative',
+    position: "relative",
     marginBottom: 16,
   },
   avatar: {
@@ -304,118 +363,115 @@ const styles = StyleSheet.create({
     height: 120,
     borderRadius: 60,
     borderWidth: 4,
-    borderColor: '#5e5ce6',
+    borderColor: "#5e5ce6",
   },
   verifiedBadge: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     right: 0,
-    backgroundColor: '#000',
+    backgroundColor: "#000",
     borderRadius: 16,
   },
   displayName: {
     fontSize: 18,
-    fontWeight: '800',
-    color: '#fff',
+    fontWeight: "800",
+    color: "#fff",
     marginBottom: 8,
   },
   bio: {
     fontSize: 15,
-    color: 'rgba(255,255,255,0.7)',
-    textAlign: 'center',
+    color: "rgba(255,255,255,0.7)",
+    textAlign: "center",
     lineHeight: 22,
     marginBottom: 24,
   },
-
   // Stats
   statsContainer: {
-    flexDirection: 'row',
-    width: '100%',
+    flexDirection: "row",
+    width: "100%",
     marginBottom: 24,
     paddingHorizontal: 10,
   },
   statItem: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: 12,
   },
   statValue: {
     fontSize: 22,
-    fontWeight: '800',
-    color: '#fff',
+    fontWeight: "800",
+    color: "#fff",
     marginBottom: 4,
   },
   statLabel: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.6)',
-    fontWeight: '600',
+    color: "rgba(255,255,255,0.6)",
+    fontWeight: "600",
   },
-
   // Action Buttons
   actionButtons: {
-    flexDirection: 'row',
-    width: '100%',
+    flexDirection: "row",
+    width: "100%",
     gap: 12,
     marginBottom: 24,
   },
   followButton: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#5e5ce6',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#5e5ce6",
     paddingVertical: 14,
     borderRadius: 12,
     gap: 8,
   },
   followingButton: {
-    backgroundColor: 'rgba(94,92,230,0.2)',
+    backgroundColor: "rgba(94,92,230,0.2)",
     borderWidth: 1,
-    borderColor: '#5e5ce6',
+    borderColor: "#5e5ce6",
   },
   followButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   messageButton: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.08)",
     paddingVertical: 14,
     borderRadius: 12,
     gap: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: "rgba(255,255,255,0.1)",
   },
   messageButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   moreButton: {
     width: 50,
     height: 50,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.08)",
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: "rgba(255,255,255,0.1)",
   },
-
   // Highlights
   highlightsSection: {
-    width: '100%',
+    width: "100%",
     marginBottom: 10,
   },
   highlightsList: {
     paddingVertical: 8,
   },
   highlightItem: {
-    alignItems: 'center',
+    alignItems: "center",
     marginRight: 20,
   },
   highlightCircle: {
@@ -427,61 +483,59 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   highlightImage: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
     borderRadius: 32,
   },
   highlightBadge: {
-    position: 'absolute',
+    position: "absolute",
     bottom: -2,
     right: -2,
     width: 24,
     height: 24,
     borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 2,
-    borderColor: '#000',
+    borderColor: "#000",
   },
   highlightTitle: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.8)',
-    fontWeight: '600',
+    color: "rgba(255,255,255,0.8)",
+    fontWeight: "600",
     maxWidth: 70,
-    textAlign: 'center',
+    textAlign: "center",
   },
-
   // Tabs
   tabsContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    overflow: 'hidden',
+    borderColor: "rgba(255,255,255,0.1)",
+    overflow: "hidden",
   },
   tab: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 10,
     borderRadius: 10,
     gap: 8,
   },
   activeTab: {
-    backgroundColor: 'rgba(94,92,230,0.2)',
+    backgroundColor: "rgba(94,92,230,0.2)",
   },
   tabText: {
     fontSize: 15,
-    fontWeight: '600',
-    color: 'rgba(255,255,255,0.5)',
+    fontWeight: "600",
+    color: "rgba(255,255,255,0.5)",
   },
   activeTabText: {
-    color: '#fff',
+    color: "#fff",
   },
-
   // Videos Grid
   videosGrid: {
     paddingHorizontal: 2,
@@ -492,50 +546,50 @@ const styles = StyleSheet.create({
   },
   videoCard: {
     width: (width - 8) / 3,
-    height: (width - 8) / 3 * 1.5,
-    position: 'relative',
-    overflow: 'hidden',
+    height: ((width - 8) / 3) * 1.5,
+    position: "relative",
+    overflow: "hidden",
   },
   videoCardMargin: {
     marginRight: 4,
   },
   videoThumbnail: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   videoOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.2)',
-    justifyContent: 'space-between',
+    backgroundColor: "rgba(0,0,0,0.2)",
+    justifyContent: "space-between",
     padding: 8,
   },
   videoStats: {
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
   },
   videoStat: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.6)",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
     gap: 4,
   },
   videoStatText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   videoDuration: {
-    alignSelf: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.8)',
+    alignSelf: "flex-end",
+    backgroundColor: "rgba(0,0,0,0.8)",
     paddingHorizontal: 6,
     paddingVertical: 3,
     borderRadius: 6,
   },
   videoDurationText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: "700",
   },
 });

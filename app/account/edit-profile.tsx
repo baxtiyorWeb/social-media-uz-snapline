@@ -1,17 +1,19 @@
-import api from '@/config/api';
-import { useCheckAuth } from '@/hooks/check-auth';
-import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
-import * as ImagePicker from 'expo-image-picker'; // ImagePicker qo'shildi
-import { Stack } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import api from "@/config/api";
+import { useCheckAuth } from "@/hooks/check-auth";
+import { Ionicons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
+import * as ImagePicker from "expo-image-picker"; // ImagePicker qo'shildi
+import { Stack } from "expo-router";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Animated,
   Dimensions,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
+  LayoutAnimation,
   Modal,
   Platform,
   ScrollView,
@@ -20,9 +22,8 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-} from 'react-native';
+} from "react-native";
 
-// =================== TYPES ===================
 interface ProfileDto {
   id: string;
   firstName: string;
@@ -32,16 +33,14 @@ interface ProfileDto {
   phone: string;
   dateJoined: string;
   accountStatus: string;
-  avatar: string; // ✅ Avatar URL qo'shildi
+  avatar: string;
 }
 
-// =================== CONSTANTS ===================
-const primaryColor = '#5e5ce6';
-const dangerColor = '#ff3b5c';
-const activeColor = '#00ff99';
-const screenHeight = Dimensions.get('window').height;
+const primaryColor = "#5e5ce6";
+const dangerColor = "#ff3b5c";
+const activeColor = "#00ff99";
+const screenHeight = Dimensions.get("window").height;
 
-// =================== CUSTOM MODAL ===================
 interface CustomModalProps {
   isVisible: boolean;
   onClose: () => void;
@@ -49,7 +48,12 @@ interface CustomModalProps {
   children: React.ReactNode;
 }
 
-const CustomAnimatedModal: React.FC<CustomModalProps> = ({ isVisible, onClose, title, children }) => {
+const CustomAnimatedModal: React.FC<CustomModalProps> = ({
+  isVisible,
+  onClose,
+  title,
+  children,
+}) => {
   const [slideAnim] = useState(new Animated.Value(screenHeight));
 
   useEffect(() => {
@@ -71,13 +75,26 @@ const CustomAnimatedModal: React.FC<CustomModalProps> = ({ isVisible, onClose, t
   if (!isVisible && slideAnim._value === screenHeight) return null;
 
   return (
-    <Modal transparent visible={isVisible} onRequestClose={handleClose} animationType="fade">
+    <Modal
+      transparent
+      visible={isVisible}
+      onRequestClose={handleClose}
+      animationType="fade"
+    >
       <BlurView intensity={20} tint="dark" style={modalStyles.backdrop}>
-        <Animated.View style={[modalStyles.modalContainer, { transform: [{ translateY: slideAnim }] }]}>
+        <Animated.View
+          style={[
+            modalStyles.modalContainer,
+            { transform: [{ translateY: slideAnim }] },
+          ]}
+        >
           <BlurView intensity={60} tint="dark" style={modalStyles.modalCard}>
             <View style={modalStyles.header}>
               <Text style={modalStyles.title}>{title}</Text>
-              <TouchableOpacity onPress={handleClose} style={modalStyles.closeButton}>
+              <TouchableOpacity
+                onPress={handleClose}
+                style={modalStyles.closeButton}
+              >
                 <Ionicons name="close" size={24} color="#fff" />
               </TouchableOpacity>
             </View>
@@ -89,11 +106,10 @@ const CustomAnimatedModal: React.FC<CustomModalProps> = ({ isVisible, onClose, t
   );
 };
 
-// =================== CHANGE INPUT MODAL ===================
 interface ChangeInputModalProps {
   onClose: () => void;
   profile: ProfileDto;
-  field: 'firstName' | 'lastName' | 'username' | 'phone';
+  field: "firstName" | "lastName" | "username" | "phone";
   onUpdate: (data: Partial<ProfileDto>) => Promise<void>;
   loading: boolean;
 }
@@ -105,21 +121,37 @@ const ChangeInputModal: React.FC<ChangeInputModalProps> = ({
   onUpdate,
   loading,
 }) => {
-  const [newValue, setNewValue] = useState(profile[field] || '');
+  const [newValue, setNewValue] = useState(profile[field] || "");
 
-  const labels: Record<typeof field, { label: string; placeholder: string; keyboardType?: 'default' | 'phone-pad' }> = {
-    firstName: { label: 'Ism', placeholder: 'Yangi ism' },
-    lastName: { label: 'Familiya', placeholder: 'Yangi familiya' },
-    username: { label: 'Foydalanuvchi nomi', placeholder: 'yangi_foydalanuvchi' },
-    phone: { label: 'Telefon raqami', placeholder: '+998 xx xxx xx xx', keyboardType: 'phone-pad' },
+  const labels: Record<
+    typeof field,
+    {
+      label: string;
+      placeholder: string;
+      keyboardType?: "default" | "phone-pad";
+    }
+  > = {
+    firstName: { label: "Ism", placeholder: "Yangi ism" },
+    lastName: { label: "Familiya", placeholder: "Yangi familiya" },
+    username: {
+      label: "Foydalanuvchi nomi",
+      placeholder: "yangi_foydalanuvchi",
+    },
+    phone: {
+      label: "Telefon raqami",
+      placeholder: "+998 xx xxx xx xx",
+      keyboardType: "phone-pad",
+    },
   };
 
   const config = labels[field];
 
   const handleSave = async () => {
     const trimmed = newValue.trim();
-    if (!trimmed) return Alert.alert('Xato', `${config.label} bo'sh bo'lishi mumkin emas.`);
-    if (trimmed === profile[field]) return Alert.alert('Ogohlantirish', "Hech qanday o'zgarish yo'q.");
+    if (!trimmed)
+      return Alert.alert("Xato", `${config.label} bo'sh bo'lishi mumkin emas.`);
+    if (trimmed === profile[field])
+      return Alert.alert("Ogohlantirish", "Hech qanday o'zgarish yo'q.");
 
     await onUpdate({ [field]: trimmed });
     onClose();
@@ -137,49 +169,52 @@ const ChangeInputModal: React.FC<ChangeInputModalProps> = ({
         onChangeText={setNewValue}
         placeholder={config.placeholder}
         placeholderTextColor="#999"
-        keyboardType={config.keyboardType || 'default'}
-        autoCapitalize={field === 'username' ? 'none' : 'words'}
+        keyboardType={config.keyboardType || "default"}
+        autoCapitalize={field === "username" ? "none" : "words"}
         editable={!loading}
       />
 
       <TouchableOpacity
-        style={[modalStyles.saveButton, loading && modalStyles.saveButtonDisabled]}
+        style={[
+          modalStyles.saveButton,
+          loading && modalStyles.saveButtonDisabled,
+        ]}
         onPress={handleSave}
         disabled={loading}
       >
-        {loading ? <ActivityIndicator color="#fff" /> : <Text style={modalStyles.saveButtonText}>Saqlash</Text>}
+        {loading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={modalStyles.saveButtonText}>Saqlash</Text>
+        )}
       </TouchableOpacity>
     </View>
   );
 };
 
-// =================== ACCOUNT SETTINGS SCREEN ===================
 export default function AccountSettingsScreen() {
   const { user, loading: authLoading } = useCheckAuth();
   const [profile, setProfile] = useState<ProfileDto | null>(null);
   const [apiLoading, setApiLoading] = useState(false);
   const [showPhone, setShowPhone] = useState(false);
-  const [activeModal, setActiveModal] = useState<'name' | 'username' | 'phone' | null>(null);
+  const [activeModal, setActiveModal] = useState<
+    "name" | "username" | "phone" | null
+  >(null);
 
   useEffect(() => {
     if (user?.profile) {
       setProfile({
         ...(user.profile as ProfileDto),
-        avatar: (user.profile as ProfileDto).avatar || '',
+        avatar: (user.profile as ProfileDto).avatar || "",
       });
     }
   }, [user]);
 
-
-
-
-
-  // =================== UPDATE PROFILE ===================
   const updateProfileField = async (
     data: Partial<ProfileDto> | { image: ImagePicker.ImagePickerAsset },
     profile: ProfileDto,
     setProfile: (profile: ProfileDto) => void,
-    setApiLoading: (loading: boolean) => void,
+    setApiLoading: (loading: boolean) => void
   ) => {
     if (!profile) return;
     setApiLoading(true);
@@ -187,14 +222,14 @@ export default function AccountSettingsScreen() {
     try {
       let response;
 
-      if ('image' in data) {
+      if ("image" in data) {
         // ✅ Rasm upload qilish
         const { image } = data;
-        const uriParts = image.uri.split('.');
+        const uriParts = image.uri.split(".");
         const fileType = uriParts[uriParts.length - 1];
 
         const formData = new FormData();
-        formData.append('file', {
+        formData.append("file", {
           uri: image.uri,
           name: `avatar.${fileType}`,
           type: `image/${fileType}`,
@@ -203,34 +238,34 @@ export default function AccountSettingsScreen() {
         // API chaqiruvi
         response = await api.post(`/profile/upload-avatar`, formData, {
           headers: {
-            'Content-Type': 'multipart/form-data',
+            "Content-Type": "multipart/form-data",
           },
         });
-
       } else {
         response = await api.patch(`/profile/update`, data);
       }
 
       setProfile({ ...profile, ...response.data.profile });
-      Alert.alert('✅ Muvaffaqiyat', 'Maʼlumotlar yangilandi.');
-
+      Alert.alert("✅ Muvaffaqiyat", "Maʼlumotlar yangilandi.");
     } catch (err: any) {
-      const msg = err.response?.data?.message || err.message || 'Xatolik yuz berdi';
-      Alert.alert('❌ Xato', msg);
+      const msg =
+        err.response?.data?.message || err.message || "Xatolik yuz berdi";
+      Alert.alert("❌ Xato", msg);
     } finally {
       setApiLoading(false);
     }
   };
 
-
-  // =================== IMAGE PICKER LOGIC ===================
   const handleImagePick = async () => {
     if (apiLoading) return;
 
     // Ruxsat so'rash (faqat iOS va ba'zi Android versiyalarida kerak)
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Ruxsat yoʻq', 'Rasm tanlash uchun kutubxonaga kirishga ruxsat berishingiz kerak.');
+    if (status !== "granted") {
+      Alert.alert(
+        "Ruxsat yoʻq",
+        "Rasm tanlash uchun kutubxonaga kirishga ruxsat berishingiz kerak."
+      );
       return;
     }
 
@@ -244,36 +279,57 @@ export default function AccountSettingsScreen() {
     if (!result.canceled && result.assets && result.assets.length > 0) {
       await updateProfileField(
         { image: result.assets[0] },
-        profile!,        // hozirgi profile state
-        setProfile,     // setState funksiyasi
-        setApiLoading   // loading state funksiyasi
+        profile!, // hozirgi profile state
+        setProfile, // setState funksiyasi
+        setApiLoading // loading state funksiyasi
       );
     }
-
   };
-  // ==========================================================
+
+  useEffect(() => {
+    const hide = Keyboard.addListener("keyboardDidHide", () => {
+      LayoutAnimation.configureNext(
+        LayoutAnimation.create(0, "easeInEaseOut", "opacity")
+      );
+    });
+
+    return () => hide.remove();
+  }, []);
 
   if (authLoading || !profile) {
     return (
-      <View style={[styles.fullContainer, { justifyContent: 'center', alignItems: 'center' }]}>
+      <View
+        style={[
+          styles.fullContainer,
+          { justifyContent: "center", alignItems: "center" },
+        ]}
+      >
         <ActivityIndicator size="large" color="#fff" />
-        <Text style={{ color: '#fff', marginTop: 10 }}>Yuklanmoqda...</Text>
+        <Text style={{ color: "#fff", marginTop: 10 }}>Yuklanmoqda...</Text>
       </View>
     );
   }
 
   const formatDate = (date: string) =>
-    new Date(date).toLocaleDateString('uz-UZ', { day: '2-digit', month: 'long', year: 'numeric' });
+    new Date(date).toLocaleDateString("uz-UZ", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    });
 
   return (
     <View style={styles.fullContainer}>
       <Stack.Screen options={{ headerShown: false }} />
       <KeyboardAvoidingView
         style={styles.fullContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-          {/* Header */}
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+          contentInsetAdjustmentBehavior="never"
+          keyboardShouldPersistTaps="handled"
+        >
           <BlurView intensity={80} tint="dark" style={styles.header}>
             <TouchableOpacity style={styles.backButton}>
               <Ionicons name="chevron-back" size={24} color="#fff" />
@@ -282,64 +338,90 @@ export default function AccountSettingsScreen() {
             <View style={styles.backButton} />
           </BlurView>
 
-          {/* User Card */}
           <View style={styles.userInfoCard}>
-            {/* ✅ Avatar Yuklash Qismi */}
             <TouchableOpacity
               onPress={handleImagePick}
               style={styles.avatarContainer}
               disabled={apiLoading}
             >
               {profile.avatar ? (
-                <Image source={{ uri: profile.avatar }} style={styles.avatarImage} />
+                <Image
+                  source={{ uri: profile.avatar }}
+                  style={styles.avatarImage}
+                />
               ) : (
                 <View style={styles.avatarPlaceholder}>
-                  <Ionicons name="person-circle-outline" size={70} color="#fff" />
+                  <Ionicons
+                    name="person-circle-outline"
+                    size={70}
+                    color="#fff"
+                  />
                 </View>
               )}
               {apiLoading ? (
-                <ActivityIndicator size="small" color="#fff" style={styles.avatarOverlay} />
+                <ActivityIndicator
+                  size="small"
+                  color="#fff"
+                  style={styles.avatarOverlay}
+                />
               ) : (
                 <View style={styles.cameraIconContainer}>
                   <Ionicons name="camera" size={18} color="#fff" />
                 </View>
               )}
             </TouchableOpacity>
-            {/* ✅ Avatar Yuklash Qismi Tugadi */}
 
-            <Text style={styles.fullNameText}>{`${profile.firstName} ${profile.lastName}`}</Text>
+            <Text
+              style={styles.fullNameText}
+            >{`${profile.firstName} ${profile.lastName}`}</Text>
             <Text style={styles.usernameText}>@{profile.username}</Text>
           </View>
 
-          {/* Status Card */}
           <BlurView intensity={60} tint="dark" style={styles.statusCard}>
             <View style={styles.statusIndicator}>
               <Ionicons name="shield-checkmark" size={20} color={activeColor} />
               <Text style={styles.statusText}>{profile.accountStatus}</Text>
             </View>
-            <Text style={styles.statusSubtext}>Akkauntingiz faol va xavfsiz</Text>
+            <Text style={styles.statusSubtext}>
+              Akkauntingiz faol va xavfsiz
+            </Text>
           </BlurView>
 
-          {/* Main Info */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Asosiy Ma'lumotlar</Text>
             <BlurView intensity={40} tint="dark" style={styles.settingCard}>
-              <TouchableOpacity style={styles.fullRowButton} onPress={() => setActiveModal('name')}>
+              <TouchableOpacity
+                style={styles.fullRowButton}
+                onPress={() => setActiveModal("name")}
+              >
                 <View style={styles.flexOne}>
                   <Text style={styles.settingLabel}>Ism va Familiya</Text>
-                  <Text style={styles.settingValue}>{`${profile.firstName} ${profile.lastName}`}</Text>
+                  <Text
+                    style={styles.settingValue}
+                  >{`${profile.firstName} ${profile.lastName}`}</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={20} color={primaryColor} />
+                <Ionicons
+                  name="chevron-forward"
+                  size={20}
+                  color={primaryColor}
+                />
               </TouchableOpacity>
 
               <View style={styles.separator} />
 
-              <TouchableOpacity style={styles.fullRowButton} onPress={() => setActiveModal('username')}>
+              <TouchableOpacity
+                style={styles.fullRowButton}
+                onPress={() => setActiveModal("username")}
+              >
                 <View style={styles.flexOne}>
                   <Text style={styles.settingLabel}>Foydalanuvchi Nomi</Text>
                   <Text style={styles.settingValue}>@{profile.username}</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={20} color={primaryColor} />
+                <Ionicons
+                  name="chevron-forward"
+                  size={20}
+                  color={primaryColor}
+                />
               </TouchableOpacity>
 
               <View style={styles.separator} />
@@ -354,27 +436,40 @@ export default function AccountSettingsScreen() {
             </BlurView>
           </View>
 
-          {/* Phone */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Kontakt</Text>
             <BlurView intensity={40} tint="dark" style={styles.settingCard}>
               <View style={styles.settingRow}>
                 <View style={styles.flexOne}>
                   <Text style={styles.settingLabel}>Telefon</Text>
-                  <Text style={styles.settingValue}>{showPhone ? profile.phone : '+998 ••• ••• ••••'}</Text>
+                  <Text style={styles.settingValue}>
+                    {showPhone ? profile.phone : "+998 ••• ••• ••••"}
+                  </Text>
                 </View>
-                <TouchableOpacity onPress={() => setShowPhone(!showPhone)} style={styles.iconButton}>
+                <TouchableOpacity
+                  onPress={() => setShowPhone(!showPhone)}
+                  style={styles.iconButton}
+                >
                   <Ionicons
-                    name={showPhone ? 'eye-off-outline' : 'eye-outline'}
+                    name={showPhone ? "eye-off-outline" : "eye-outline"}
                     size={22}
                     color={primaryColor}
                   />
                 </TouchableOpacity>
               </View>
               <View style={styles.separator} />
-              <TouchableOpacity style={styles.changeButton} onPress={() => setActiveModal('phone')}>
-                <Text style={styles.changeButtonText}>Raqamni o'zgartirish</Text>
-                <Ionicons name="chevron-forward" size={18} color={primaryColor} />
+              <TouchableOpacity
+                style={styles.changeButton}
+                onPress={() => setActiveModal("phone")}
+              >
+                <Text style={styles.changeButtonText}>
+                  Raqamni o'zgartirish
+                </Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={18}
+                  color={primaryColor}
+                />
               </TouchableOpacity>
             </BlurView>
           </View>
@@ -384,7 +479,9 @@ export default function AccountSettingsScreen() {
             <BlurView intensity={40} tint="dark" style={styles.infoCard}>
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Qo'shilgan sana:</Text>
-                <Text style={styles.infoValue}>{formatDate(profile.dateJoined)}</Text>
+                <Text style={styles.infoValue}>
+                  {formatDate(profile.dateJoined)}
+                </Text>
               </View>
               <View style={styles.separator} />
               <View style={styles.infoRow}>
@@ -394,22 +491,26 @@ export default function AccountSettingsScreen() {
             </BlurView>
           </View>
 
-          {/* Danger Zone */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Xavfli Zona</Text>
             <BlurView intensity={40} tint="dark" style={styles.dangerCard}>
               <TouchableOpacity style={styles.dangerButton}>
-                <Ionicons name="log-out-outline" size={22} color={dangerColor} />
-                <Text style={styles.dangerButtonText}>Barcha sessiyalardan chiqish</Text>
+                <Ionicons
+                  name="log-out-outline"
+                  size={22}
+                  color={dangerColor}
+                />
+                <Text style={styles.dangerButtonText}>
+                  Barcha sessiyalardan chiqish
+                </Text>
               </TouchableOpacity>
             </BlurView>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* Modals */}
       <CustomAnimatedModal
-        isVisible={activeModal === 'name'}
+        isVisible={activeModal === "name"}
         onClose={() => setActiveModal(null)}
         title="Ism va Familiya"
       >
@@ -434,14 +535,12 @@ export default function AccountSettingsScreen() {
           }}
           onClose={() => setActiveModal(null)}
         />
-
       </CustomAnimatedModal>
 
       <CustomAnimatedModal
-        isVisible={activeModal === 'username'}
+        isVisible={activeModal === "username"}
         onClose={() => setActiveModal(null)}
         title="Foydalanuvchi Nomi"
-
       >
         <ChangeInputModal
           profile={profile}
@@ -453,11 +552,10 @@ export default function AccountSettingsScreen() {
           }}
           onClose={() => setActiveModal(null)}
         />
-
       </CustomAnimatedModal>
 
       <CustomAnimatedModal
-        isVisible={activeModal === 'phone'}
+        isVisible={activeModal === "phone"}
         onClose={() => setActiveModal(null)}
         title="Telefon Raqami"
       >
@@ -471,29 +569,27 @@ export default function AccountSettingsScreen() {
           }}
           onClose={() => setActiveModal(null)}
         />
-
       </CustomAnimatedModal>
     </View>
   );
 }
 
-// =================== STYLES ===================
 const styles = StyleSheet.create({
-  fullContainer: { flex: 1, backgroundColor: '#000' },
+  fullContainer: { flex: 1, backgroundColor: "#000" },
   scrollContent: { paddingBottom: 40, paddingHorizontal: 16 },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingVertical: 12,
     marginBottom: 20,
-    backgroundColor: 'rgba(0,0,0,0.8)',
+    backgroundColor: "rgba(0,0,0,0.8)",
     marginHorizontal: -16,
     paddingHorizontal: 16,
   },
   backButton: { padding: 4 },
-  headerTitle: { color: '#fff', fontSize: 18, fontWeight: '700' },
-  userInfoCard: { alignItems: 'center', marginBottom: 30 },
+  headerTitle: { color: "#fff", fontSize: 18, fontWeight: "700" },
+  userInfoCard: { alignItems: "center", marginBottom: 30 },
   // ✅ Avatarga yangi stillar qo'shildi
   avatarContainer: {
     width: 90, // Kattaroq qilish
@@ -502,167 +598,204 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     borderWidth: 3,
     borderColor: primaryColor, // Asosiy rang bilan border
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.1)",
   },
   avatarPlaceholder: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
     borderRadius: 45,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   avatarImage: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
     borderRadius: 45,
-    resizeMode: 'cover',
+    resizeMode: "cover",
   },
   cameraIconContainer: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     right: 0,
     backgroundColor: primaryColor,
     borderRadius: 15,
     padding: 5,
     borderWidth: 2,
-    borderColor: '#000',
+    borderColor: "#000",
   },
   avatarOverlay: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    position: "absolute",
+    width: "100%",
+    height: "100%",
+    backgroundColor: "rgba(0,0,0,0.5)",
     borderRadius: 45,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   // ✅ Avatar stili tugadi
-  fullNameText: { color: '#fff', fontSize: 22, fontWeight: '700' },
-  usernameText: { color: '#aaa', fontSize: 14, marginTop: 4 },
+  fullNameText: { color: "#fff", fontSize: 22, fontWeight: "700" },
+  usernameText: { color: "#aaa", fontSize: 14, marginTop: 4 },
   statusCard: {
     padding: 20,
     borderRadius: 16,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: "rgba(0,0,0,0.4)",
     borderWidth: 1,
-    borderColor: activeColor + '30',
+    borderColor: activeColor + "30",
     marginBottom: 30,
   },
-  statusIndicator: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  statusText: { color: activeColor, fontSize: 16, fontWeight: '600', marginLeft: 8 },
-  statusSubtext: { color: '#bbb', fontSize: 13 },
+  statusIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  statusText: {
+    color: activeColor,
+    fontSize: 16,
+    fontWeight: "600",
+    marginLeft: 8,
+  },
+  statusSubtext: { color: "#bbb", fontSize: 13 },
   section: { marginBottom: 25 },
-  sectionTitle: { color: '#fff', fontSize: 18, fontWeight: '600', marginBottom: 12 },
+  sectionTitle: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "600",
+    marginBottom: 12,
+  },
   settingCard: {
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: "rgba(255,255,255,0.1)",
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
-    overflow: 'hidden',
+    borderColor: "rgba(255,255,255,0.15)",
+    overflow: "hidden",
   },
   settingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 15,
     paddingVertical: 12,
   },
   fullRowButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 15,
     paddingVertical: 12,
   },
   flexOne: { flex: 1 },
-  settingLabel: { color: '#aaa', fontSize: 13, marginBottom: 2 },
-  settingValue: { color: '#fff', fontSize: 16, fontWeight: '500' },
-  settingValueDisabled: { color: '#777', fontSize: 16, fontWeight: '500' },
+  settingLabel: { color: "#aaa", fontSize: 13, marginBottom: 2 },
+  settingValue: { color: "#fff", fontSize: 16, fontWeight: "500" },
+  settingValueDisabled: { color: "#777", fontSize: 16, fontWeight: "500" },
   iconButton: { padding: 8 },
   changeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 15,
     paddingVertical: 12,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: "rgba(255,255,255,0.05)",
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.08)',
+    borderTopColor: "rgba(255,255,255,0.08)",
   },
-  changeButtonText: { color: primaryColor, fontSize: 15, fontWeight: '600' },
-  separator: { height: 1, backgroundColor: 'rgba(255,255,255,0.05)' },
+  changeButtonText: { color: primaryColor, fontSize: 15, fontWeight: "600" },
+  separator: { height: 1, backgroundColor: "rgba(255,255,255,0.05)" },
   infoCard: {
     padding: 15,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: "rgba(255,255,255,0.1)",
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
+    borderColor: "rgba(255,255,255,0.15)",
   },
-  infoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8 },
-  infoLabel: { color: '#aaa', fontSize: 14 },
-  infoValue: { color: '#fff', fontSize: 14, fontWeight: '500' },
+  infoRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 8,
+  },
+  infoLabel: { color: "#aaa", fontSize: 14 },
+  infoValue: { color: "#fff", fontSize: 14, fontWeight: "500" },
   dangerCard: {
     padding: 15,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,59,92,0.1)',
+    backgroundColor: "rgba(255,59,92,0.1)",
     borderWidth: 1,
-    borderColor: dangerColor + '30',
+    borderColor: dangerColor + "30",
   },
-  dangerButton: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10 },
-  dangerButtonText: { color: dangerColor, fontSize: 16, fontWeight: '600', marginLeft: 12 },
+  dangerButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+  },
+  dangerButtonText: {
+    color: dangerColor,
+    fontSize: 16,
+    fontWeight: "600",
+    marginLeft: 12,
+  },
 });
 
 const modalStyles = StyleSheet.create({
-  backdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.6)' },
-  modalContainer: { width: '100%', paddingTop: 10 },
+  backdrop: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0,0,0,0.6)",
+  },
+  modalContainer: { width: "100%", paddingTop: 10 },
   modalCard: {
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     paddingHorizontal: 20,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
-    backgroundColor: 'rgba(0,0,0,0.8)',
+    paddingBottom: Platform.OS === "ios" ? 40 : 20,
+    backgroundColor: "rgba(0,0,0,0.8)",
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: "rgba(255,255,255,0.2)",
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingVertical: 15,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
+    borderBottomColor: "rgba(255,255,255,0.1)",
     marginBottom: 15,
   },
-  title: { color: '#fff', fontSize: 20, fontWeight: '700' },
+  title: { color: "#fff", fontSize: 20, fontWeight: "700" },
   closeButton: { padding: 5 },
   content: { paddingHorizontal: 5 },
-  formContainer: { width: '100%' },
-  label: { color: '#aaa', fontSize: 14, fontWeight: '500', marginTop: 15, marginBottom: 5 },
+  formContainer: { width: "100%" },
+  label: {
+    color: "#aaa",
+    fontSize: 14,
+    fontWeight: "500",
+    marginTop: 15,
+    marginBottom: 5,
+  },
   currentValueText: {
     color: activeColor,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     paddingBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
+    borderBottomColor: "rgba(255,255,255,0.1)",
   },
   input: {
-    width: '100%',
+    width: "100%",
     height: 50,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: "rgba(255,255,255,0.1)",
     borderRadius: 10,
     paddingHorizontal: 15,
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: "rgba(255,255,255,0.2)",
   },
   saveButton: {
     backgroundColor: primaryColor,
     padding: 15,
     borderRadius: 12,
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 30,
     shadowColor: primaryColor,
     shadowOffset: { width: 0, height: 4 },
@@ -670,6 +803,6 @@ const modalStyles = StyleSheet.create({
     shadowRadius: 5,
     elevation: 8,
   },
-  saveButtonDisabled: { backgroundColor: 'gray', shadowOpacity: 0 },
-  saveButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  saveButtonDisabled: { backgroundColor: "gray", shadowOpacity: 0 },
+  saveButtonText: { color: "#fff", fontSize: 16, fontWeight: "700" },
 });

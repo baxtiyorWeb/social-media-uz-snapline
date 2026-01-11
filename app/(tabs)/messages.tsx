@@ -1,697 +1,712 @@
-import api from '@/config/api';
-import { useCheckAuth } from '@/hooks/check-auth';
-import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
-import { useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import { ChatListItem, useChatList } from "@/hooks/chat/use-chat-list";
+import { Ionicons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
+import React, { useRef } from "react";
 import {
   ActivityIndicator,
-  Alert,
-  Dimensions,
+  Animated,
   FlatList,
   Image,
-  Platform,
+  RefreshControl,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
-  View
-} from 'react-native';
+  View,
+} from "react-native";
+import { RectButton, Swipeable } from "react-native-gesture-handler";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-const { width } = Dimensions.get('window');
-const API_URL = 'http://192.168.100.89:4040/chat';
+// ChatItemProps uchun model (yoki interfeys)
 
-interface Chat {
-  id: number;
-  isGroup: boolean;
-  title?: string;
-  avatar?: string;
-  participants: {
-    id: number;
-    name: string;
-    avatar: string;
-    isAdmin: boolean;
-  }[];
-  lastMessage?: {
-    id: number;
-    text: string;
-    sender: string;
-    createdAt: string;
-    mediaType?: string;
-  } | null;
-  unreadCount: number;
-  isPinned?: boolean;
-  isBlocked?: boolean;
-}
+const ChatListScreen = () => {
+  const {
+    chats,
+    isLoading,
+    refreshing,
+    totalUnreadCount,
+    handleRefresh,
+    openChat,
+    handleBlockChat,
+    handleDeleteChat,
+  } = useChatList();
 
-export default function Messages() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedTab, setSelectedTab] = useState<'all' | 'unread'>('all');
-  const [chats, setChats] = useState<Chat[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [pinnedChats, setPinnedChats] = useState<number[]>([]);
-  const [blockedChats, setBlockedChats] = useState<number[]>([]);
-  const router = useRouter();
+  const swipeableRefs = useRef<Record<number, Swipeable | null>>({});
 
-  const { user } = useCheckAuth()
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const hours = Math.floor(diff / (1000 * 60 * 60));
 
-  // currentUserId — frontend state yoki context orqali olinadi
-  const loadChats = useCallback(async (page = 1, limit = 50) => {
-    try {
-      const response = await api.get(`/chat?page=${page}&limit=${limit}`);
-      const currentUserId = user?.id;
+    if (hours < 1) {
+      const minutes = Math.floor(diff / (1000 * 60));
+      return minutes < 1 ? "Hozir" : `${minutes}d`;
+    }
 
-      if (!currentUserId) {
-        console.warn("User ID is not yet available, skipping chat load.");
-        setLoading(false); // Loading ni bekor qilish
-        setRefreshing(false);
-        return;
-      }
-      console.log("currentUserId: ", currentUserId);
-
-
-      const formattedChats = response.data.data.map((chat: any) => {
-        const otherParticipant = chat.participants.find((p: any) => p.id !== currentUserId);
-
-        return {
-          id: chat.id,
-          isGroup: chat.isGroup,
-          title: chat.title || otherParticipant?.name || "No name",
-          avatar: chat.avatar || otherParticipant?.avatar || "",
-          participants: chat.participants,
-          lastMessage: chat.lastMessage,
-          unreadCount: chat.unreadCount,
-        };
+    if (hours < 24) {
+      return date.toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
       });
-
-      setChats(formattedChats);
-    } catch (error) {
-      console.error('Error loading chats:', error);
-      Alert.alert('Xato', 'Chatlarni yuklashda muammo yuz berdi');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [user?.id]);
-
-
-
-  useEffect(() => {
-    loadChats();
-  }, [loadChats, user?.id]);
-
-  const filteredChats = chats.filter((chat) => {
-    const matchesSearch = chat.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      chat.participants.some(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesTab = selectedTab === 'all' || (selectedTab === 'unread' && chat.unreadCount > 0);
-    const notBlocked = !blockedChats.includes(chat.id);
-    return matchesSearch && matchesTab && notBlocked;
-  });
-
-  // Pinned chatlarni oldin ko'rsatish
-  const sortedChats = filteredChats.sort((a, b) => {
-    const aPinned = pinnedChats.includes(a.id) ? 0 : 1;
-    const bPinned = pinnedChats.includes(b.id) ? 0 : 1;
-    return aPinned - bPinned;
-  });
-
-  const openChat = (chat: Chat) => {
-    if (blockedChats.includes(chat.id)) {
-      Alert.alert('Xato', 'Bu chat blokiylangan');
-      return;
     }
 
-    const otherUser = chat.participants[0];
+    const days = Math.floor(hours / 24);
+    if (days === 1) return "Kecha";
+    if (days < 7) return `${days} kun oldin`;
 
-    router.push({
-      pathname: '/chat/[id]',
-      params: {
-        id: chat.id.toString(),
-        user: chat.title || 'User',
-        avatar: chat.avatar,
-        online: 'true',
-        userId: otherUser?.id?.toString() || '0',
-      },
+    return date.toLocaleDateString("en-US", {
+      day: "numeric",
+      month: "short",
     });
   };
 
-  // Delete chat
-  const handleDeleteChat = (chat: Chat) => {
-    Alert.alert(
-      "Chatni O'chirish",
-      `"${chat.title}" chatni o'chirishni xohlaysizmi? Bu amalni qaytara olmaysiz.`,
-      [
-        { text: 'Bekor qilish', style: 'cancel' },
-        {
-          text: "O'chirish",
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await api.delete(`/chat/${chat.id}`);
-              setChats(chats.filter(c => c.id !== chat.id));
-              Alert.alert('Muvaffaqiyat', 'Chat o\'chirildi');
-            } catch (error) {
-              console.error('Error deleting chat:', error);
-              Alert.alert('Xato', "Chat o'chirishda muammo yuz berdi");
-            }
-          },
-        },
-      ]
-    );
-  };
+  const getLastMessagePreview = (chat: ChatListItem) => {
+    // ... avvalgi getLastMessagePreview funksiyasi qoldi
+    if (!chat.lastMessage) return "Yangi suhbat boshlang";
 
-  // Pin/Unpin chat
-  const handlePinChat = (chat: Chat) => {
-    if (pinnedChats.includes(chat.id)) {
-      setPinnedChats(pinnedChats.filter(id => id !== chat.id));
-      Alert.alert('Muvaffaqiyat', "Chat ushlab qo'yish bekor qilindi");
-    } else {
-      setPinnedChats([...pinnedChats, chat.id]);
-      Alert.alert('Muvaffaqiyat', 'Chat ushlab qo\'yildi');
+    if (chat.lastMessage.mediaType) {
+      switch (chat.lastMessage.mediaType) {
+        case "image":
+          return "📷 Foto";
+        case "video":
+          return "🎥 Video";
+        case "audio":
+          return "🎵 Audio";
+        default:
+          return "📎 Fayl";
+      }
     }
+
+    const prefix =
+      chat.lastMessage.senderId === chat.participants[0]?.id
+        ? "Siz: "
+        : chat.isGroup
+        ? `${chat.lastMessage.sender}: `
+        : "";
+
+    return `${prefix}${chat.lastMessage.text}`;
   };
 
-  // Block/Unblock chat
-  const handleBlockChat = (chat: Chat) => {
-    if (blockedChats.includes(chat.id)) {
-      setBlockedChats(blockedChats.filter(id => id !== chat.id));
-      Alert.alert('Muvaffaqiyat', 'Chat blokirovkasi bekor qilindi');
-    } else {
-      setBlockedChats([...blockedChats, chat.id]);
-      Alert.alert('Muvaffaqiyat', 'Chat blokiylandi');
-    }
+  const closeOtherSwipeables = (id: number) => {
+    Object.keys(swipeableRefs.current).forEach((key) => {
+      const currentId = parseInt(key);
+      if (currentId !== id && swipeableRefs.current[currentId]) {
+        swipeableRefs.current[currentId]?.close();
+      }
+    });
   };
 
-  // Context menu
-  const showChatMenu = (chat: Chat) => {
-    const isPinned = pinnedChats.includes(chat.id);
-    const isBlocked = blockedChats.includes(chat.id);
+  // Surish (Swipe) amallarini render qilish funksiyasi
+  const renderRightActions = (
+    progress: Animated.AnimatedInterpolation<number>,
+    dragX: Animated.AnimatedInterpolation<number>,
+    item: ChatListItem
+  ) => {
+    const scale = dragX.interpolate({
+      inputRange: [-100, 0],
+      outputRange: [1, 0],
+      extrapolate: "clamp",
+    });
 
-    const options = [
-      {
-        text: isPinned ? "Ushlab qo'yishni bekor qilish" : "Ushlab qo'yish",
-        icon: isPinned ? 'pin' : 'pin-outline',
-        onPress: () => handlePinChat(chat),
-      },
-      {
-        text: isBlocked ? 'Blokni bekor qilish' : 'Blokla',
-        icon: isBlocked ? 'checkmark-circle' : 'ban',
-        onPress: () => handleBlockChat(chat),
-      },
-      {
-        text: "O'chirish",
-        icon: 'trash-outline',
-        isDangerous: true,
-        onPress: () => handleDeleteChat(chat),
-      },
-    ];
-
-    Alert.alert(
-      'Chat Amallari',
-      chat.title,
-      [
-        ...options.map(opt => ({
-          text: opt.text,
-          style: opt.isDangerous ? 'destructive' as const : 'default' as const,
-          onPress: opt.onPress,
-        })),
-        { text: 'Bekor qilish', style: 'cancel' as const },
-      ]
+    // Bloklash tugmasi (Asosiy xavfli amal)
+    const renderBlockButton = () => (
+      <RectButton
+        style={[styles.rightAction, { backgroundColor: "#FF3B30" }]}
+        onPress={() => {
+          swipeableRefs.current[item.id]?.close();
+          handleBlockChat(item.id);
+        }}
+      >
+        <Animated.View style={{ transform: [{ scale }] }}>
+          <Ionicons name="hand-right-outline" size={24} color="#FFF" />
+          <Text style={styles.actionText}>Bloklash</Text>
+        </Animated.View>
+      </RectButton>
     );
-  };
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    loadChats();
-  };
-
-  const renderChatItem = ({ item }: { item: Chat }) => {
-    const lastMessageText = item.lastMessage?.text || 'No messages yet';
-    const lastMessageTime = item.lastMessage?.createdAt
-      ? new Date(item.lastMessage.createdAt).toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-      })
-      : '';
-
-    const isPinned = pinnedChats.includes(item.id);
-    const isBlocked = blockedChats.includes(item.id);
+    // O'chirish tugmasi (Ikkilamchi amal)
+    const renderDeleteButton = () => (
+      <RectButton
+        style={[styles.rightAction, { backgroundColor: "#A0A0A0" }]}
+        onPress={() => {
+          swipeableRefs.current[item.id]?.close();
+          handleDeleteChat(item.id);
+        }}
+      >
+        <Animated.View style={{ transform: [{ scale }] }}>
+          <Ionicons name="trash-outline" size={24} color="#FFF" />
+          <Text style={styles.actionText}>O'chirish</Text>
+        </Animated.View>
+      </RectButton>
+    );
 
     return (
-      <TouchableOpacity
-        style={[
-          styles.messageCard,
-          isBlocked && styles.blockedCard,
-          isPinned && styles.pinnedCard,
-        ]}
-        activeOpacity={0.7}
-        onPress={() => openChat(item)}
-        onLongPress={() => showChatMenu(item)}
-        delayLongPress={400}
-      >
-        <View style={styles.avatarContainer}>
-          <Image
-            source={{ uri: item.avatar }}
-            style={[styles.avatar, isBlocked && styles.blockedAvatar]}
-          />
-          {!isBlocked && <View style={styles.onlineBadge} />}
-          {isPinned && (
-            <View style={styles.pinBadge}>
-              <Ionicons name="pin" size={12} color="#fff" />
-            </View>
-          )}
-        </View>
+      <View style={styles.rightActionsContainer}>
+        {renderBlockButton()}
+        {renderDeleteButton()}
+      </View>
+    );
+  };
 
-        <View style={[styles.messageContent, isBlocked && styles.blockedContent]}>
-          <View style={styles.messageHeader}>
-            <View style={styles.titleContainer}>
-              <Text style={styles.userName} numberOfLines={1}>
-                {item.title}
-              </Text>
-              {isPinned && (
-                <Ionicons name="pin" size={14} color="#5e5ce6" style={{ marginLeft: 6 }} />
+  const renderChatItem = ({
+    item,
+    index,
+  }: {
+    item: ChatListItem;
+    index: number;
+  }) => {
+    const otherUser = !item.isGroup
+      ? item.participants.find((p: any) => p.id !== item.participants[0]?.id)
+      : null;
+
+    const displayName = item.isGroup
+      ? item.title || "Guruh suhbati"
+      : otherUser?.name || "Foydalanuvchi";
+
+    const displayAvatar = item.isGroup ? item.avatar : otherUser?.avatar;
+
+    const isLast = index === chats.length - 1;
+
+    return (
+      <Swipeable
+        ref={(ref) => {
+          swipeableRefs.current[item.id] = ref;
+        }}
+        renderRightActions={(progress, dragX) =>
+          renderRightActions(progress, dragX, item)
+        }
+        friction={2} // Surish tezligini boshqaradi
+        rightThreshold={30}
+        onSwipeableWillOpen={() => closeOtherSwipeables(item.id)}
+      >
+        <TouchableOpacity
+          style={styles.chatItem}
+          onPress={() => openChat(item)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.chatItemContent}>
+            {/* Avatar with Online Status */}
+            <View style={styles.avatarContainer}>
+              {displayAvatar ? (
+                <Image source={{ uri: displayAvatar }} style={styles.avatar} />
+              ) : (
+                <LinearGradient
+                  colors={["#667EEA", "#764BA2"]}
+                  style={[styles.avatar, styles.avatarPlaceholder]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <Text style={styles.avatarText}>
+                    {displayName.charAt(0).toUpperCase()}
+                  </Text>
+                </LinearGradient>
+              )}
+
+              {/* Online Indicator */}
+              {!item.isGroup && otherUser?.isOnline && (
+                <View style={styles.onlineIndicatorWrapper}>
+                  <View style={styles.onlineIndicator} />
+                </View>
+              )}
+
+              {/* Unread Badge on Avatar */}
+              {item.unreadCount > 0 && (
+                <View style={styles.avatarBadge}>
+                  <Text style={styles.avatarBadgeText}>
+                    {item.unreadCount > 9 ? "9+" : item.unreadCount}
+                  </Text>
+                </View>
               )}
             </View>
-            <Text style={styles.timeText}>{lastMessageTime}</Text>
-          </View>
 
-          <View style={styles.messageFooter}>
-            <Text
-              style={[
-                styles.lastMessage,
-                item.unreadCount > 0 && styles.unreadMessage,
-                isBlocked && styles.blockedMessage,
-              ]}
-              numberOfLines={1}
-            >
-              {isBlocked ? 'Chat blokiylangan' : lastMessageText}
-            </Text>
-            {item.unreadCount > 0 && !isBlocked && (
-              <View style={styles.unreadBadge}>
-                <Text style={styles.unreadText}>
-                  {item.unreadCount > 9 ? '9+' : item.unreadCount}
-                </Text>
+            {/* Chat Info */}
+            <View style={styles.chatInfo}>
+              <View style={styles.chatHeader}>
+                <View style={styles.chatTitleContainer}>
+                  <Text
+                    style={[
+                      styles.chatName,
+                      item.unreadCount > 0 && styles.chatNameUnread,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {displayName}
+                  </Text>
+                  {item.isGroup && (
+                    <Ionicons
+                      name="people"
+                      size={14}
+                      color="#999"
+                      style={styles.groupIcon}
+                    />
+                  )}
+                </View>
+                {item.lastMessage && (
+                  <Text
+                    style={[
+                      styles.chatTime,
+                      item.unreadCount > 0 && styles.chatTimeUnread,
+                    ]}
+                  >
+                    {formatTime(item?.lastMessage?.createdAt)}
+                  </Text>
+                )}
               </View>
-            )}
-          </View>
-        </View>
 
-        {/* Action buttons (revealed on long press) */}
-        <View style={styles.actionIcons}>
-          <TouchableOpacity
-            style={styles.actionIcon}
-            onPress={() => handlePinChat(item)}
-          >
-            <Ionicons
-              name={isPinned ? 'pin' : 'pin-outline'}
-              size={20}
-              color={isPinned ? '#5e5ce6' : 'rgba(255,255,255,0.5)'}
-            />
-          </TouchableOpacity>
-        </View>
-      </TouchableOpacity>
+              <View style={styles.chatFooter}>
+                <Text
+                  style={[
+                    styles.lastMessage,
+                    item.unreadCount > 0 && styles.unreadMessage,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {getLastMessagePreview(item)}
+                </Text>
+
+                {item.unreadCount > 0 && (
+                  <View style={styles.unreadBadgeSmall}>
+                    <Text style={styles.unreadTextSmall}>
+                      {item.unreadCount > 99 ? "99+" : item.unreadCount}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          </View>
+
+          {/* Swipe Actions Indicator - Endi keraksiz */}
+          {/* <View style={styles.swipeIndicator}>
+            <Ionicons name="chevron-forward" size={20} color="#CCC" />
+          </View> */}
+        </TouchableOpacity>
+        {!isLast && <View style={styles.separator} />}
+      </Swipeable>
     );
   };
 
-  if (loading) {
+  const renderEmptyState = () => (
+    // ... avvalgi renderEmptyState funksiyasi qoldi
+    <View style={styles.emptyContainer}>
+      <LinearGradient
+        colors={["#667EEA", "#764BA2"]}
+        style={styles.emptyIconContainer}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        <Ionicons name="chatbubbles-outline" size={60} color="#FFF" />
+      </LinearGradient>
+      <Text style={styles.emptyText}>Xabarlar yo'q</Text>
+      <Text style={styles.emptySubtext}>
+        Yangi suhbat boshlash uchun qo'shish tugmasini bosing
+      </Text>
+    </View>
+  );
+
+  const renderHeader = () => (
+    <View style={styles.listHeader}>
+      <Text style={styles.listHeaderText}>Suhbatlar ro'yxati</Text>
+    </View>
+  );
+
+  if (isLoading) {
     return (
-      <View style={[styles.container, styles.centerContent]}>
-        <ActivityIndicator size="large" color="#5e5ce6" />
+      <View style={styles.loadingContainer}>
+        <LinearGradient
+          colors={["#F8F9FA", "#E9ECEF"]}
+          style={StyleSheet.absoluteFillObject}
+        />
+        <ActivityIndicator size="large" color="#007AFF" />
+        <Text style={styles.loadingText}>Yuklanmoqda...</Text>
       </View>
     );
   }
+  const normalizedChats: ChatListItem[] = chats.map((chat) => ({
+    ...chat,
+    title: chat.title ?? null,
+    avatar: chat.avatar ?? null,
+    participants: chat.participants.map((p) => ({
+      ...p,
+      avatar: p.avatar ?? null,
+      isAdmin: p.isAdmin ?? false,
+    })),
+    lastMessage: chat.lastMessage
+      ? {
+          text: chat.lastMessage.text,
+          senderId: chat.lastMessage.senderId ?? 0, // default value if missing
+          sender: chat.lastMessage.sender ?? "Unknown",
+          createdAt: chat.lastMessage.createdAt ?? new Date().toISOString(),
+          mediaType: chat.lastMessage.mediaType,
+        }
+      : null,
+  }));
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <BlurView intensity={80} tint="dark" style={styles.header}>
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Messages</Text>
-          <TouchableOpacity style={styles.newMessageButton}>
-            <Ionicons name="create-outline" size={24} color="#fff" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Search Bar */}
-        <View style={styles.searchContainer}>
-          <Ionicons
-            name="search"
-            size={20}
-            color="rgba(255,255,255,0.5)"
-            style={styles.searchIcon}
-          />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search messages..."
-            placeholderTextColor="rgba(255,255,255,0.5)"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={20} color="rgba(255,255,255,0.5)" />
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Tabs */}
-        <View style={styles.tabsContainer}>
-          <TouchableOpacity
-            style={[styles.tab, selectedTab === 'all' && styles.activeTab]}
-            onPress={() => setSelectedTab('all')}
-          >
-            <Text style={[styles.tabText, selectedTab === 'all' && styles.activeTabText]}>
-              All
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, selectedTab === 'unread' && styles.activeTab]}
-            onPress={() => setSelectedTab('unread')}
-          >
-            <Text style={[styles.tabText, selectedTab === 'unread' && styles.activeTabText]}>
-              Unread
-            </Text>
-            {chats.filter((m) => m.unreadCount > 0).length > 0 && (
-              <View style={styles.tabBadge}>
-                <Text style={styles.tabBadgeText}>
-                  {chats.filter((m) => m.unreadCount > 0).length}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-      </BlurView>
-
-      {/* Chats List */}
-      <FlatList
-        data={sortedChats}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={renderChatItem}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        refreshing={refreshing}
-        onRefresh={onRefresh}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Ionicons name="chatbubbles-outline" size={80} color="rgba(255,255,255,0.3)" />
-            <Text style={styles.emptyTitle}>No chats found</Text>
-            <Text style={styles.emptySubtitle}>
-              {searchQuery ? 'Try a different search' : 'Start a conversation!'}
-            </Text>
-          </View>
-        }
+      <LinearGradient
+        colors={["#F8F9FA", "#E9ECEF"]}
+        style={StyleSheet.absoluteFillObject}
       />
 
-      {/* Floating Action Button */}
-      <TouchableOpacity style={styles.fab}>
-        <BlurView intensity={100} tint="light" style={styles.fabInner}>
-          <Ionicons name="chatbubble-ellipses" size={28} color="#fff" />
+      <SafeAreaView style={styles.safeArea} edges={["top"]}>
+        {/* Header */}
+        <BlurView intensity={80} tint="light" style={styles.headerBlur}>
+          <View style={styles.header}>
+            <View style={styles.headerLeft}>
+              <Text style={styles.headerTitle}>Xabarlar</Text>
+              {totalUnreadCount > 0 && (
+                <View style={styles.headerBadge}>
+                  <Text style={styles.headerBadgeText}>
+                    {totalUnreadCount > 99 ? "99+" : totalUnreadCount}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.headerActions}>
+              <TouchableOpacity style={styles.headerAction}>
+                <Ionicons name="search-outline" size={24} color="#007AFF" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.headerAction}>
+                <Ionicons name="create-outline" size={24} color="#007AFF" />
+              </TouchableOpacity>
+            </View>
+          </View>
         </BlurView>
-      </TouchableOpacity>
+
+        {/* Chat List */}
+        <FlatList
+          data={normalizedChats}
+          renderItem={renderChatItem}
+          keyExtractor={(item) => item.id.toString()}
+          contentContainerStyle={
+            chats.length === 0 ? styles.emptyList : styles.chatList
+          }
+          ListEmptyComponent={renderEmptyState}
+          ListHeaderComponent={chats.length > 0 ? renderHeader : null}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              colors={["#007AFF"]}
+              tintColor="#007AFF"
+            />
+          }
+          showsVerticalScrollIndicator={false}
+          // ItemSeparatorComponent olib tashlandi, uni renderChatItem ichida Swipeable ostiga joylashtirdim
+        />
+
+        {/* Floating Action Button */}
+        <TouchableOpacity style={styles.fab} activeOpacity={0.8}>
+          <LinearGradient
+            colors={["#007AFF", "#0051D5"]}
+            style={styles.fabGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <Ionicons name="add" size={28} color="#FFF" />
+          </LinearGradient>
+        </TouchableOpacity>
+      </SafeAreaView>
     </View>
   );
-}
+};
 
+// --- STYLES ---
 const styles = StyleSheet.create({
+  // ... Avvalgi style lar ...
   container: {
     flex: 1,
-    backgroundColor: '#000',
   },
-  centerContent: {
-    justifyContent: 'center',
-    alignItems: 'center',
+  safeArea: {
+    flex: 1,
   },
-
-  // Header
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: "#666",
+  },
+  headerBlur: {
+    overflow: "hidden",
+    borderBottomWidth: 0.5,
+    borderBottomColor: "rgba(0,0,0,0.1)",
+  },
   header: {
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
-    overflow: 'hidden',
+    paddingVertical: 16,
+    backgroundColor: "rgba(255,255,255,0.7)",
   },
-  headerContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   headerTitle: {
-    fontSize: 34,
-    fontWeight: '800',
-    color: '#fff',
+    fontSize: 32,
+    fontWeight: "bold",
+    color: "#000",
   },
-  newMessageButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(94,92,230,0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(94,92,230,0.4)',
+  headerBadge: {
+    backgroundColor: "#FF3B30",
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginLeft: 12,
+    minWidth: 24,
+    alignItems: "center",
   },
-
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 1,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+  headerBadgeText: {
+    color: "#FFF",
+    fontSize: 12,
+    fontWeight: "700",
   },
-  searchIcon: {
-    marginRight: 10,
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
   },
-  searchInput: {
-    flex: 1,
-    color: '#fff',
-    fontSize: 16,
+  headerAction: {
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: 8,
   },
-
-  // Tabs
-  tabsContainer: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  tab: {
+  listHeader: {
     paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    paddingTop: 16,
+    paddingBottom: 8,
   },
-  activeTab: {
-    backgroundColor: '#5e5ce6',
+  listHeaderText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#666",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
-  tabText: {
-    color: 'rgba(255,255,255,0.6)',
+  chatList: {
+    paddingBottom: 80,
+  },
+  emptyList: {
+    flex: 1,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 40,
+  },
+  emptyIconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 24,
+    shadowColor: "#667EEA",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  emptyText: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#000",
+    marginBottom: 8,
+  },
+  emptySubtext: {
     fontSize: 15,
-    fontWeight: '600',
+    color: "#666",
+    textAlign: "center",
+    lineHeight: 22,
   },
-  activeTabText: {
-    color: '#fff',
+  chatItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFF",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    justifyContent: "space-between",
   },
-  tabBadge: {
-    backgroundColor: '#ff3b5c',
-    borderRadius: 10,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    minWidth: 20,
-    alignItems: 'center',
+  chatItemContent: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
   },
-  tabBadgeText: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '700',
+  separator: {
+    height: 0.5,
+    backgroundColor: "#E5E5E5",
+    marginLeft: 88, // Avatar + margin eni
   },
-
-  // Message List
-  listContent: {
-    paddingTop: 8,
-    paddingBottom: 100,
-  },
-  messageCard: {
-    flexDirection: 'row',
-    padding: 16,
-    marginHorizontal: 12,
-    marginVertical: 4,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    alignItems: 'center',
-  },
-  pinnedCard: {
-    backgroundColor: 'rgba(94,92,230,0.08)',
-    borderColor: 'rgba(94,92,230,0.2)',
-  },
-  blockedCard: {
-    backgroundColor: 'rgba(255,59,92,0.05)',
-    borderColor: 'rgba(255,59,92,0.15)',
-  },
-  blockedContent: {
-    opacity: 0.6,
-  },
-  blockedAvatar: {
-    opacity: 0.5,
-  },
-  blockedMessage: {
-    fontStyle: 'italic',
-    color: 'rgba(255,59,92,0.8)',
-  },
-
   avatarContainer: {
-    position: 'relative',
-    marginRight: 14,
+    position: "relative",
+    marginRight: 12,
   },
   avatar: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.1)',
   },
-  onlineBadge: {
-    position: 'absolute',
-    bottom: 2,
-    right: 2,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: '#4caf50',
-    borderWidth: 2,
-    borderColor: '#000',
+  avatarPlaceholder: {
+    justifyContent: "center",
+    alignItems: "center",
   },
-  pinBadge: {
-    position: 'absolute',
-    top: 0,
+  avatarText: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#FFF",
+  },
+  onlineIndicatorWrapper: {
+    position: "absolute",
+    bottom: 0,
     right: 0,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#5e5ce6',
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: "#FFF",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  onlineIndicator: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: "#34C759",
+  },
+  avatarBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    backgroundColor: "#FF3B30",
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 2,
-    borderColor: '#000',
+    borderColor: "#FFF",
   },
-
-  messageContent: {
-    flex: 1,
-    justifyContent: 'center',
+  avatarBadgeText: {
+    color: "#FFF",
+    fontSize: 10,
+    fontWeight: "700",
   },
-  messageHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  chatInfo: {
     flex: 1,
   },
-  userName: {
+  chatHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  chatTitleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    marginRight: 8,
+  },
+  chatName: {
     fontSize: 17,
-    fontWeight: '700',
-    color: '#fff',
-    flex: 1,
+    fontWeight: "600",
+    color: "#000",
+    flexShrink: 1,
   },
-  timeText: {
+  chatNameUnread: {
+    fontWeight: "800",
+  },
+  groupIcon: {
+    marginLeft: 4,
+  },
+  chatTime: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.5)',
+    color: "#999",
     marginLeft: 8,
+    minWidth: 40,
+    textAlign: "right",
   },
-  messageFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  chatTimeUnread: {
+    color: "#007AFF",
+    fontWeight: "600",
+  },
+  chatFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   lastMessage: {
-    fontSize: 15,
-    color: 'rgba(255,255,255,0.6)',
     flex: 1,
+    fontSize: 15,
+    color: "#666",
+    marginRight: 8,
   },
   unreadMessage: {
-    color: '#fff',
-    fontWeight: '600',
+    fontWeight: "600",
+    color: "#000",
   },
-  unreadBadge: {
-    backgroundColor: '#5e5ce6',
-    borderRadius: 12,
+  unreadBadgeSmall: {
+    backgroundColor: "#007AFF",
+    borderRadius: 10,
     paddingHorizontal: 8,
     paddingVertical: 4,
     minWidth: 24,
-    alignItems: 'center',
-    marginLeft: 8,
+    alignItems: "center",
+    marginLeft: "auto",
   },
-  unreadText: {
-    color: '#fff',
+  unreadTextSmall: {
+    color: "#FFF",
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: "700",
   },
-
-  actionIcons: {
-    flexDirection: 'row',
-    gap: 8,
+  swipeIndicator: {
+    marginLeft: 8,
+    opacity: 0.3,
   },
-  actionIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  // Empty State
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 80,
-    paddingHorizontal: 40,
-  },
-  emptyTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#fff',
-    marginTop: 20,
-    marginBottom: 8,
-  },
-  emptySubtitle: {
-    fontSize: 16,
-    color: 'rgba(255,255,255,0.5)',
-    textAlign: 'center',
-  },
-
-  // FAB
   fab: {
-    position: 'absolute',
-    bottom: 30,
+    position: "absolute",
+    bottom: 20,
     right: 20,
-    borderRadius: 30,
-    overflow: 'hidden',
-    shadowColor: '#5e5ce6',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    overflow: "hidden",
+    shadowColor: "#007AFF",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
     elevation: 8,
   },
-  fabInner: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#5e5ce6',
+  fabGradient: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  // --- SWIPE ACTIONS STYLES ---
+  rightActionsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  rightAction: {
+    justifyContent: "center",
+    alignItems: "center",
+    width: 80,
+    height: "100%",
+  },
+  actionText: {
+    color: "#FFF",
+    fontSize: 13,
+    fontWeight: "600",
+    marginTop: 4,
   },
 });
+
+export default ChatListScreen;

@@ -1,6 +1,6 @@
 import api from '@/config/api';
 import { AxiosError } from 'axios';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 // User ma’lumotlari tipi
 export interface Profile {
@@ -11,19 +11,18 @@ export interface Profile {
 }
 export interface User {
   id: string;
-  profile: Profile,
+  profile: Profile;
   email: string;
   followers: any[];
   following: any[];
   posts: any[];
-
-  // kerak bo‘lsa qo‘shimcha fieldlar
 }
 
 interface UseCheckAuthResult {
   user: User | null;
   loading: boolean;
   error: string | null;
+  refetchUser: () => Promise<void>;
 }
 
 export const useCheckAuth = (): UseCheckAuthResult => {
@@ -31,24 +30,30 @@ export const useCheckAuth = (): UseCheckAuthResult => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const response = await api.get<User>('/profile/me',);
-        console.log(response.data);
-
-        setUser(response.data);
-      } catch (err) {
-        const axiosError = err as AxiosError;
-        console.log(axiosError)
-        setError(axiosError.response?.data as string || axiosError.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkAuth();
+  const fetchUser = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await api.get<User>('/profile/me');
+      setUser(response.data);
+    } catch (err) {
+      const axiosError = err as AxiosError;
+      setError(axiosError.response?.data as string || axiosError.message);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  return { user, loading, error };
+  useEffect(() => {
+    fetchUser();
+  }, [fetchUser]);
+
+  
+
+  // refetchUser ni pull-to-refresh uchun qaytaramiz
+  const refetchUser = async () => {
+    await fetchUser();
+  };
+
+  return { user, loading, error, refetchUser };
 };

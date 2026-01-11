@@ -1,13 +1,14 @@
-import api from '@/config/api';
-import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { router, Stack } from 'expo-router';
-import React, { useRef, useState } from 'react';
+import api from "@/config/api";
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router, Stack } from "expo-router";
+import React, { useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Animated,
   Dimensions,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -16,65 +17,35 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-} from 'react-native';
+} from "react-native";
 
-const { width, height } = Dimensions.get('window');
+const { width, height } = Dimensions.get("window");
 
-// Custom Icon Components
 const LockIcon = () => (
-  <View style={styles.customIconLarge}>
-    <View style={styles.lockBody} />
-    <View style={styles.lockShackle} />
-  </View>
+  <Ionicons name="lock-closed-outline" size={36} color="#fff" />
 );
-
-const EmailIcon = () => (
-  <View style={styles.customIconSmall}>
-    <View style={styles.envelope}>
-      <View style={styles.envelopeFront} />
-    </View>
-  </View>
-);
-
-const PasswordIcon = () => (
-  <View style={styles.customIconSmall}>
-    <View style={styles.padlock}>
-      <View style={styles.padlockTop} />
-      <View style={styles.padlockBody} />
-    </View>
-  </View>
-);
-
-const PlayIcon = () => (
-  <View style={styles.playButton}>
-    <View style={styles.playTriangle} />
-  </View>
-);
-
+const PlayIcon = () => <Ionicons name="play-circle" size={20} color="#fff" />;
 const UserIcon = () => (
-  <View style={styles.customIconMedium}>
-    <View style={styles.userHead} />
-    <View style={styles.userBody} />
-  </View>
+  <Ionicons name="person-circle-outline" size={20} color="#fff" />
 );
-
-const SuccessCheckIcon = () => (
-  <View style={styles.successCircle}>
-    <View style={styles.checkMark} />
-  </View>
+const EmailIcon = () => (
+  <Ionicons name="mail-outline" size={20} color="#94a3b8" />
 );
-
+const PasswordIcon = () => (
+  <Ionicons name="key-outline" size={20} color="#94a3b8" />
+);
 const ErrorXIcon = () => (
-  <View style={styles.errorCircle}>
-    <View style={styles.xMark} />
-  </View>
+  <Ionicons name="close-circle-outline" size={24} color="#ef4444" />
+);
+const SuccessCheckIcon = () => (
+  <Ionicons name="checkmark-circle-outline" size={24} color="#22c55e" />
 );
 
 export default function AuthApp() {
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -84,20 +55,17 @@ export default function AuthApp() {
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
-  // Login form state
   const [loginData, setLoginData] = useState({
-    email: '',
-    password: '',
+    email: "",
+    password: "",
   });
 
-  // Register form state
   const [registerData, setRegisterData] = useState({
-    email: '',
-    password: '',
-    confirmPassword: '',
+    email: "",
+    password: "",
+    confirmPassword: "",
   });
 
-  // Animation on step change
   React.useEffect(() => {
     fadeAnim.setValue(0);
     slideAnim.setValue(50);
@@ -120,9 +88,8 @@ export default function AuthApp() {
         useNativeDriver: true,
       }),
     ]).start();
-  }, [currentStep, fadeAnim, slideAnim, scaleAnim]);
+  }, [currentStep]);
 
-  // Rotate animation for loading
   React.useEffect(() => {
     if (loading) {
       Animated.loop(
@@ -135,28 +102,38 @@ export default function AuthApp() {
     }
   }, [loading, rotateAnim]);
 
+  React.useEffect(() => {
+    const hide = Keyboard.addListener("keyboardDidHide", () => {
+      fadeAnim.stopAnimation();
+      slideAnim.stopAnimation();
+      scaleAnim.stopAnimation();
+    });
+
+    return () => hide.remove();
+  }, []);
+
   const handleChooseAuth = (type: any) => {
-    setError('');
-    setSuccess('');
-    setCurrentStep(type === 'login' ? 1 : 2);
+    setError("");
+    setSuccess("");
+    setCurrentStep(type === "login" ? 1 : 2);
   };
 
   const handleLogin = async () => {
-    setError('');
-    setSuccess('');
+    setError("");
+    setSuccess("");
 
     if (!loginData.email.trim() || !loginData.password.trim()) {
-      setError('Email va parol majburiy!');
+      setError("Email va parol majburiy!");
       return;
     }
 
-    if (!loginData.email.toLowerCase().endsWith('@gmail.com')) {
-      setError('Faqat @gmail.com email orqali kirish mumkin!');
+    if (!loginData.email.toLowerCase().endsWith("@gmail.com")) {
+      setError("Faqat @gmail.com email orqali kirish mumkin!");
       return;
     }
 
     if (loginData.password.length < 6) {
-      setError('Parol kamida 6 ta belgidan iborat bo\'lishi kerak!');
+      setError("Parol kamida 6 ta belgidan iborat bo'lishi kerak!");
       return;
     }
 
@@ -166,53 +143,53 @@ export default function AuthApp() {
         email: loginData.email,
         password: loginData.password,
       });
-      console.log('access_token', response.data.access_token);
-      console.log('refresh_token', response.data.refresh_token);
+      console.log("access_token", response.data.access_token);
+      console.log("refresh_token", response.data.refresh_token);
 
-      await AsyncStorage.setItem('access_token', response.data.access_token);
-      await AsyncStorage.setItem('refresh_token', response.data.refresh_token);
-      await AsyncStorage.setItem('user', JSON.stringify(response.data.user));
+      await AsyncStorage.setItem("access_token", response.data.access_token);
+      await AsyncStorage.setItem("refresh_token", response.data.refresh_token);
+      await AsyncStorage.setItem("user", JSON.stringify(response.data.user));
 
-      setSuccess('✅ Login muvaffaqiyatli!');
-      setLoginData({ email: '', password: '' });
+      setSuccess("✅ Login muvaffaqiyatli!");
+      setLoginData({ email: "", password: "" });
 
       setTimeout(() => {
-        router.navigate('/');
+        router.navigate("/");
       }, 1500);
     } catch (err: any) {
-      const errorMsg = err.response?.data?.message || 'Login xatosi!';
+      const errorMsg = err.response?.data?.message || "Login xatosi!";
       setError(errorMsg);
-      Alert.alert('Xato', errorMsg);
+      Alert.alert("Xato", errorMsg);
     } finally {
       setLoading(false);
     }
   };
 
   const handleRegister = async () => {
-    setError('');
-    setSuccess('');
+    setError("");
+    setSuccess("");
 
     if (
       !registerData.email.trim() ||
       !registerData.password.trim() ||
       !registerData.confirmPassword.trim()
     ) {
-      setError('Barcha maydonlar majburiy!');
+      setError("Barcha maydonlar majburiy!");
       return;
     }
 
-    if (!registerData.email.toLowerCase().endsWith('@gmail.com')) {
-      setError('Faqat @gmail.com email orqali ro\'yxatdan o\'tish mumkin!');
+    if (!registerData.email.toLowerCase().endsWith("@gmail.com")) {
+      setError("Faqat @gmail.com email orqali ro'yxatdan o'tish mumkin!");
       return;
     }
 
     if (registerData.password.length < 6) {
-      setError('Parol kamida 6 ta belgidan iborat bo\'lishi kerak!');
+      setError("Parol kamida 6 ta belgidan iborat bo'lishi kerak!");
       return;
     }
 
     if (registerData.password !== registerData.confirmPassword) {
-      setError('Parollar mos kelmadi!');
+      setError("Parollar mos kelmadi!");
       return;
     }
 
@@ -224,22 +201,21 @@ export default function AuthApp() {
         confirmPassword: registerData.confirmPassword,
       });
 
+      await AsyncStorage.setItem("access_token", response.data.access_token);
+      await AsyncStorage.setItem("refresh_token", response.data.refresh_token);
+      await AsyncStorage.setItem("user", JSON.stringify(response.data.user));
 
-
-      await AsyncStorage.setItem('access_token', response.data.access_token);
-      await AsyncStorage.setItem('refresh_token', response.data.refresh_token);
-      await AsyncStorage.setItem('user', JSON.stringify(response.data.user));
-
-      setSuccess('✅ Ro\'yxatdan o\'tish muvaffaqiyatli!');
-      setRegisterData({ email: '', password: '', confirmPassword: '' });
+      setSuccess("✅ Ro'yxatdan o'tish muvaffaqiyatli!");
+      setRegisterData({ email: "", password: "", confirmPassword: "" });
 
       setTimeout(() => {
-        router.navigate('/');
+        router.navigate("/");
       }, 1500);
     } catch (err: any) {
-      const errorMsg = err.response?.data?.message || 'Ro\'yxatdan o\'tish xatosi!';
+      const errorMsg =
+        err.response?.data?.message || "Ro'yxatdan o'tish xatosi!";
       setError(errorMsg);
-      Alert.alert('Xato', errorMsg);
+      Alert.alert("Xato", errorMsg);
     } finally {
       setLoading(false);
     }
@@ -247,28 +223,29 @@ export default function AuthApp() {
 
   const handleGoBack = () => {
     setCurrentStep(0);
-    setError('');
-    setSuccess('');
-    setLoginData({ email: '', password: '' });
-    setRegisterData({ email: '', password: '', confirmPassword: '' });
+    setError("");
+    setSuccess("");
+    setLoginData({ email: "", password: "" });
+    setRegisterData({ email: "", password: "", confirmPassword: "" });
   };
 
   const spin = rotateAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
+    outputRange: ["0deg", "360deg"],
   });
 
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={styles.backgroundGradient} />
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        contentInsetAdjustmentBehavior="automatic"
+        keyboardShouldPersistTaps="handled"
       >
         {/* Step 0: Choose Authentication Type */}
         {currentStep === 0 && (
@@ -277,21 +254,18 @@ export default function AuthApp() {
               styles.stepContainer,
               {
                 opacity: fadeAnim,
-                transform: [
-                  { translateY: slideAnim },
-                  { scale: scaleAnim },
-                ],
+                transform: [{ translateY: slideAnim }, { scale: scaleAnim }],
               },
             ]}
           >
-            {/* Animated Background Elements */}
-            <View style={styles.floatingOrb1} />
-            <View style={styles.floatingOrb2} />
-            <View style={styles.floatingOrb3} />
+            {/* Animated Background Elements - Olib tashlandi (yangi styllarda yo'q) */}
+            {/* <View style={styles.floatingOrb1} /> */}
+            {/* <View style={styles.floatingOrb2} /> */}
+            {/* <View style={styles.floatingOrb3} /> */}
 
             {/* Header Icon */}
             <View style={styles.iconContainer}>
-              <View style={styles.iconCircleGradient}>
+              <View style={styles.iconCircle}>
                 <LockIcon />
               </View>
             </View>
@@ -299,18 +273,20 @@ export default function AuthApp() {
             {/* Title */}
             <Text style={styles.mainTitle}>PlayVibe</Text>
             <Text style={styles.tagline}>Video Platformasi</Text>
-            <Text style={styles.subtitle}>Xush Kelibsiz! 👋</Text>
+            <Text style={styles.subtitle}>
+              Xush Kelibsiz! Ilovadan foydalanish uchun kirish yoki ro'yxatdan
+              o'tishni tanlang.
+            </Text>
 
             {/* Login Button */}
             <TouchableOpacity
-              style={[styles.largeButton, styles.blueGradient]}
-              onPress={() => handleChooseAuth('login')}
+              style={[styles.largeButton, styles.blueSolid]} // blueGradient o'rniga blueSolid
+              onPress={() => handleChooseAuth("login")}
               activeOpacity={0.85}
             >
               <View style={styles.buttonContent}>
-                <View style={styles.buttonIconBox}>
-                  <PlayIcon />
-                </View>
+                {/* buttonIconBox olib tashlandi, ikonka to'g'ridan-to'g'ri ishlatiladi */}
+                <PlayIcon />
                 <Text style={styles.largeButtonText}>Kirish</Text>
                 <Ionicons name="chevron-forward" size={20} color="#fff" />
               </View>
@@ -318,14 +294,13 @@ export default function AuthApp() {
 
             {/* Register Button */}
             <TouchableOpacity
-              style={[styles.largeButton, styles.pinkGradient]}
-              onPress={() => handleChooseAuth('register')}
+              style={[styles.largeButton, styles.pinkSolid]} // pinkGradient o'rniga pinkSolid
+              onPress={() => handleChooseAuth("register")}
               activeOpacity={0.85}
             >
               <View style={styles.buttonContent}>
-                <View style={styles.buttonIconBox}>
-                  <UserIcon />
-                </View>
+                {/* buttonIconBox olib tashlandi, ikonka to'g'ridan-to'g'ri ishlatiladi */}
+                <UserIcon />
                 <Text style={styles.largeButtonText}>Ro'yxatdan O'tish</Text>
                 <Ionicons name="chevron-forward" size={20} color="#fff" />
               </View>
@@ -333,8 +308,15 @@ export default function AuthApp() {
 
             {/* Info Box */}
             <View style={styles.infoBox}>
-              <View style={styles.infoDot} />
-              <Text style={styles.infoText}>Faqat @gmail.com email orqali ro'yxatdan o'ting</Text>
+              {/* infoDot o'rniga oddiy ikonka qo'shildi */}
+              <Ionicons
+                name="information-circle-outline"
+                size={20}
+                color="#60a5fa"
+              />
+              <Text style={styles.infoText}>
+                Faqat @gmail.com email orqali ro'yxatdan o'ting
+              </Text>
             </View>
           </Animated.View>
         )}
@@ -346,10 +328,7 @@ export default function AuthApp() {
               styles.stepContainer,
               {
                 opacity: fadeAnim,
-                transform: [
-                  { translateY: slideAnim },
-                  { scale: scaleAnim },
-                ],
+                transform: [{ translateY: slideAnim }, { scale: scaleAnim }],
               },
             ]}
           >
@@ -360,11 +339,11 @@ export default function AuthApp() {
                 style={styles.backButton}
               >
                 <View style={styles.backIcon}>
-                  <Ionicons name="chevron-back" size={28} color="#60a5fa" />
+                  <Ionicons name="chevron-back" size={24} color="#60a5fa" />
                 </View>
               </TouchableOpacity>
               <Text style={styles.formTitle}>Kirish</Text>
-              <View style={{ width: 40 }} />
+              <View style={{ width: 44 }} />
             </View>
 
             <Text style={styles.formSubtitle}>Akkauntingizga kirish</Text>
@@ -412,7 +391,7 @@ export default function AuthApp() {
                   style={styles.eyeIcon}
                 >
                   <Ionicons
-                    name={showPassword ? 'eye' : 'eye-off'}
+                    name={showPassword ? "eye" : "eye-off"}
                     size={20}
                     color="#60a5fa"
                   />
@@ -423,9 +402,12 @@ export default function AuthApp() {
             {/* Error Message */}
             {error && (
               <Animated.View
-                style={[styles.errorBox, {
-                  transform: [{ scale: scaleAnim }]
-                }]}
+                style={[
+                  styles.errorBox,
+                  {
+                    transform: [{ scale: scaleAnim }],
+                  },
+                ]}
               >
                 <ErrorXIcon />
                 <Text style={styles.errorText}>{error}</Text>
@@ -434,9 +416,14 @@ export default function AuthApp() {
 
             {/* Success Message */}
             {success && (
-              <Animated.View style={[styles.successBox, {
-                transform: [{ scale: scaleAnim }]
-              }]}>
+              <Animated.View
+                style={[
+                  styles.successBox,
+                  {
+                    transform: [{ scale: scaleAnim }],
+                  },
+                ]}
+              >
                 <SuccessCheckIcon />
                 <Text style={styles.successText}>{success}</Text>
               </Animated.View>
@@ -446,7 +433,7 @@ export default function AuthApp() {
             <TouchableOpacity
               style={[
                 styles.submitButton,
-                styles.blueGradient,
+                styles.blueSolid, // blueGradient o'rniga blueSolid
                 loading && styles.buttonDisabled,
               ]}
               onPress={handleLogin}
@@ -468,7 +455,7 @@ export default function AuthApp() {
             {/* Switch to Register */}
             <View style={styles.switchContainer}>
               <Text style={styles.switchText}>Akkauntingiz yo'qmi? </Text>
-              <TouchableOpacity onPress={() => handleChooseAuth('register')}>
+              <TouchableOpacity onPress={() => handleChooseAuth("register")}>
                 <Text style={styles.switchLink}>Ro'yxatdan o'ting</Text>
               </TouchableOpacity>
             </View>
@@ -482,10 +469,7 @@ export default function AuthApp() {
               styles.stepContainer,
               {
                 opacity: fadeAnim,
-                transform: [
-                  { translateY: slideAnim },
-                  { scale: scaleAnim },
-                ],
+                transform: [{ translateY: slideAnim }, { scale: scaleAnim }],
               },
             ]}
           >
@@ -496,11 +480,11 @@ export default function AuthApp() {
                 style={styles.backButton}
               >
                 <View style={styles.backIcon}>
-                  <Ionicons name="chevron-back" size={28} color="#ec4899" />
+                  <Ionicons name="chevron-back" size={24} color="#ec4899" />
                 </View>
               </TouchableOpacity>
               <Text style={styles.formTitle}>Ro'yxatdan O'tish</Text>
-              <View style={{ width: 40 }} />
+              <View style={{ width: 44 }} />
             </View>
 
             <Text style={styles.formSubtitle}>Yangi akkaunt yaratish</Text>
@@ -548,7 +532,7 @@ export default function AuthApp() {
                   style={styles.eyeIcon}
                 >
                   <Ionicons
-                    name={showPassword ? 'eye' : 'eye-off'}
+                    name={showPassword ? "eye" : "eye-off"}
                     size={20}
                     color="#ec4899"
                   />
@@ -577,13 +561,11 @@ export default function AuthApp() {
                   secureTextEntry={!showConfirmPassword}
                 />
                 <TouchableOpacity
-                  onPress={() =>
-                    setShowConfirmPassword(!showConfirmPassword)
-                  }
+                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
                   style={styles.eyeIcon}
                 >
                   <Ionicons
-                    name={showConfirmPassword ? 'eye' : 'eye-off'}
+                    name={showConfirmPassword ? "eye" : "eye-off"}
                     size={20}
                     color="#ec4899"
                   />
@@ -594,9 +576,12 @@ export default function AuthApp() {
             {/* Error Message */}
             {error && (
               <Animated.View
-                style={[styles.errorBox, {
-                  transform: [{ scale: scaleAnim }]
-                }]}
+                style={[
+                  styles.errorBox,
+                  {
+                    transform: [{ scale: scaleAnim }],
+                  },
+                ]}
               >
                 <ErrorXIcon />
                 <Text style={styles.errorText}>{error}</Text>
@@ -605,7 +590,12 @@ export default function AuthApp() {
 
             {/* Success Message */}
             {success && (
-              <Animated.View style={[styles.successBox, { transform: [{ scale: scaleAnim }] }]}>
+              <Animated.View
+                style={[
+                  styles.successBox,
+                  { transform: [{ scale: scaleAnim }] },
+                ]}
+              >
                 <SuccessCheckIcon />
                 <Text style={styles.successText}>{success}</Text>
               </Animated.View>
@@ -615,7 +605,7 @@ export default function AuthApp() {
             <TouchableOpacity
               style={[
                 styles.submitButton,
-                styles.pinkGradient,
+                styles.pinkSolid, // pinkGradient o'rniga pinkSolid
                 loading && styles.buttonDisabled,
               ]}
               onPress={handleRegister}
@@ -636,8 +626,10 @@ export default function AuthApp() {
 
             {/* Switch to Login */}
             <View style={styles.switchContainer}>
-              <Text style={styles.switchText}>Allaqachon akkauntingiz bor? </Text>
-              <TouchableOpacity onPress={() => handleChooseAuth('login')}>
+              <Text style={styles.switchText}>
+                Allaqachon akkauntingiz bor?{" "}
+              </Text>
+              <TouchableOpacity onPress={() => handleChooseAuth("login")}>
                 <Text style={styles.switchLink2}>Kirish</Text>
               </TouchableOpacity>
             </View>
@@ -649,475 +641,294 @@ export default function AuthApp() {
 }
 
 const styles = StyleSheet.create({
+  // MARK: - Layout & Background
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: "#0f172a", // Asosiy to'q fon
   },
-  backgroundGradient: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: '#0f172a',
-    opacity: 0.95,
-  },
+  // backgroundGradient (Olib tashlangan - ortiqcha bezak)
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
-    paddingVertical: 40,
-    paddingHorizontal: 20,
+    justifyContent: "center",
+    paddingVertical: 50,
+    paddingHorizontal: 25,
   },
   stepContainer: {
     flex: 1,
   },
 
-  // Floating Orbs
-  floatingOrb1: {
-    position: 'absolute',
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-    top: -30,
-    right: -30,
-  },
-  floatingOrb2: {
-    position: 'absolute',
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(236, 72, 153, 0.1)',
-    bottom: 50,
-    left: -40,
-  },
-  floatingOrb3: {
-    position: 'absolute',
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(139, 92, 246, 0.08)',
-    bottom: -50,
-    right: -50,
-  },
+  // MARK: - Floating Orbs (Olib tashlangan - kulgili bezak)
 
-  // Custom Icons
-  customIconLarge: {
-    width: 60,
-    height: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  lockBody: {
-    width: 32,
-    height: 28,
-    borderRadius: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    position: 'absolute',
-    bottom: 5,
-  },
-  lockShackle: {
-    width: 20,
-    height: 22,
-    borderRadius: 10,
-    borderWidth: 3,
-    borderColor: 'rgba(255, 255, 255, 0.9)',
-    position: 'absolute',
-    top: 2,
-  },
-  customIconSmall: {
-    width: 24,
-    height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  envelope: {
-    width: 24,
-    height: 18,
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.8)',
-    borderRadius: 2,
-  },
-  envelopeFront: {
-    width: 20,
-    height: 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    marginTop: 4,
-    marginLeft: 2,
-  },
-  padlock: {
-    width: 20,
-    height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  padlockTop: {
-    width: 14,
-    height: 10,
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.8)',
-    borderBottomWidth: 0,
-    borderRadius: 7,
-  },
-  padlockBody: {
-    width: 18,
-    height: 14,
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.8)',
-    borderRadius: 2,
-    marginTop: -6,
-  },
-  playButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  playTriangle: {
-    width: 0,
-    height: 0,
-    backgroundColor: 'transparent',
-    borderStyle: 'solid',
-    borderLeftWidth: 8,
-    borderRightWidth: 0,
-    borderBottomWidth: 5,
-    borderTopWidth: 5,
-    borderLeftColor: '#fff',
-    borderRightColor: 'transparent',
-    borderBottomColor: 'transparent',
-    borderTopColor: 'transparent',
-    marginLeft: 4,
-  },
-  customIconMedium: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  userHead: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    marginBottom: 2,
-  },
-  userBody: {
-    width: 20,
-    height: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderTopLeftRadius: 10,
-    borderTopRightRadius: 10,
-  },
-  successCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(34, 197, 94, 0.2)',
-    borderWidth: 2,
-    borderColor: '#22c55e',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkMark: {
-    width: 16,
-    height: 8,
-    borderLeftWidth: 2,
-    borderBottomWidth: 2,
-    borderColor: '#22c55e',
-    transform: [{ rotate: '-45deg' }],
-  },
-  errorCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
-    borderWidth: 2,
-    borderColor: '#ef4444',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  xMark: {
-    width: 14,
-    height: 2,
-    backgroundColor: '#ef4444',
-  },
-
-  // Icon Containers
-  iconContainer: {
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  iconCircleGradient: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#6366f1',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-    shadowColor: '#6366f1',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-
-  // Text Styles
+  // MARK: - Text Styles
   mainTitle: {
-    fontSize: 40,
-    fontWeight: '900',
-    color: '#fff',
-    textAlign: 'center',
-    marginBottom: 4,
-    letterSpacing: 1,
+    fontSize: 32,
+    fontWeight: "800", // Qalin, jiddiy
+    color: "#fff",
+    textAlign: "center",
+    marginBottom: 8,
+    letterSpacing: 0, // Katta harf oralig'i olib tashlangan
   },
   tagline: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#93c5fd',
-    textAlign: 'center',
-    marginBottom: 12,
-    letterSpacing: 2,
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#60a5fa", // Yumshoqroq rang
+    textAlign: "center",
+    marginBottom: 4,
+    letterSpacing: 1.5, // Kichik harf oralig'i saqlangan (subtle accent)
+    textTransform: "uppercase",
   },
   subtitle: {
     fontSize: 16,
-    color: '#9ca3af',
-    textAlign: 'center',
+    color: "#94a3b8", // Yumshoqroq kulrang
+    textAlign: "center",
     marginBottom: 40,
+    lineHeight: 24,
   },
 
-  // Button Styles
-  blueGradient: {
-    backgroundColor: '#3b82f6',
-    shadowColor: '#3b82f6',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 15,
-    elevation: 8,
+  // MARK: - Icon Containers
+  iconContainer: {
+    alignItems: "center",
+    marginBottom: 30,
   },
-  pinkGradient: {
-    backgroundColor: '#ec4899',
-    shadowColor: '#ec4899',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 15,
-    elevation: 8,
+  // iconCircleGradient - (Soddalashtirilgan)
+  iconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#334155", // To'qroq, tekis fon
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 20,
+    // Shadowlar olib tashlangan/soddalashtirilgan
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  // Custom Icons (Olib tashlangan, o'rniga haqiqiy piktogramma komponentlari ishlatilishi kerak)
+  placeholderIcon: {
+    width: 36,
+    height: 36,
+    backgroundColor: "#94a3b8", // Joyni belgilash uchun oddiy rang
+    borderRadius: 4,
+  },
+
+  // MARK: - Button Styles
+  blueSolid: {
+    backgroundColor: "#3b82f6", // Asosiy ko'k
+    shadowColor: "#1d4ed8",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  pinkSolid: {
+    backgroundColor: "#ec4899",
+    shadowColor: "#9d174d",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 6,
   },
   largeButton: {
-    borderRadius: 16,
-    paddingVertical: 16,
+    borderRadius: 12, // Kichikroq radius
+    paddingVertical: 18,
     paddingHorizontal: 20,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   buttonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center", // Markazga joylangan
   },
-  buttonIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  // buttonIconBox (Olib tashlangan - ikonka to'g'ridan-to'g'ri matn bilan birga joylashtiriladi)
   largeButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
-    flex: 1,
-    textAlign: 'center',
+    color: "#fff",
+    fontSize: 17,
+    fontWeight: "700",
+    // flex: 1, // Olib tashlangan, markazga joylashish uchun
+    textAlign: "center",
   },
 
-  // Info Box
+  // MARK: - Info Box
   infoBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(96, 165, 250, 0.1)',
-    borderRadius: 14,
-    padding: 14,
+    flexDirection: "row",
+    alignItems: "flex-start", // Matn yuqoridan boshlanadi
+    backgroundColor: "rgba(96, 165, 250, 0.15)", // Kuchliroq fon
+    borderRadius: 8,
+    padding: 15,
     marginTop: 30,
     borderLeftWidth: 4,
-    borderLeftColor: '#3b82f6',
+    borderLeftColor: "#3b82f6",
   },
-  infoDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#60a5fa',
-    marginRight: 10,
-  },
+  // infoDot (Olib tashlangan, ikonka/emoji ishlatilishi kerak)
   infoText: {
-    color: '#93c5fd',
-    fontSize: 14,
+    color: "#93c5fd",
+    fontSize: 15,
     flex: 1,
+    marginLeft: 5,
+    lineHeight: 22,
   },
 
-  // Form Styles
+  // MARK: - Form Styles
   formHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-start", // Chapga surilgan
+    marginBottom: 30,
   },
   backButton: {
-    padding: 8,
+    padding: 10,
+    marginRight: 10,
   },
   backIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: 'rgba(96, 165, 250, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: "#1e293b", // Fonga yaqin rang
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#334155",
   },
   formTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#fff',
+    fontSize: 30,
+    fontWeight: "800",
+    color: "#fff",
   },
   formSubtitle: {
-    fontSize: 15,
-    color: '#9ca3af',
-    marginBottom: 28,
+    fontSize: 16,
+    color: "#94a3b8",
+    marginBottom: 25,
+    lineHeight: 24,
   },
 
-  // Input Styles
+  // MARK: - Input Styles
   inputGroup: {
     marginBottom: 20,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#f1f5f9',
-    marginBottom: 10,
-    letterSpacing: 0.5,
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#e2e8f0", // Oqroq rang
+    marginBottom: 8,
+    letterSpacing: 0,
   },
   inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1e293b',
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    borderWidth: 2,
-    borderColor: '#334155',
-    overflow: 'hidden',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#1e293b",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    borderWidth: 1, // Yupqa, aniq chegaralar
+    borderColor: "#334155",
   },
   inputFocus: {
-    shadowColor: '#3b82f6',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    borderColor: "#3b82f6", // Fokuslangan chegaraning rangi
+    shadowColor: "#3b82f6",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 5,
   },
   inputIcon: {
     marginRight: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
+    color: "#94a3b8", // Ikonka uchun yumshoq kulrang
   },
   input: {
     flex: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 8,
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '500',
+    paddingVertical: 15,
+    paddingHorizontal: 0, // Ichki padding olib tashlangan (inputContainer ga ko'chirildi)
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "400",
   },
   eyeIcon: {
     padding: 8,
     marginLeft: 8,
+    color: "#94a3b8",
   },
 
-  // Error & Success
+  // MARK: - Error & Success (Qorong'i rejim uchun o'zgartirilgan)
   errorBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#7f1d1d',
-    borderRadius: 12,
-    padding: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(239, 68, 68, 0.15)", // Engil qizil fon
+    borderRadius: 8,
+    padding: 14,
     marginBottom: 16,
     borderLeftWidth: 4,
-    borderLeftColor: '#ef4444',
-    shadowColor: '#ef4444',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    borderLeftColor: "#ef4444",
   },
   errorText: {
-    color: '#fca5a5',
-    fontSize: 14,
+    color: "#fca5a5",
+    fontSize: 15,
     marginLeft: 12,
     flex: 1,
-    fontWeight: '500',
+    fontWeight: "400",
   },
   successBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#15803d',
-    borderRadius: 12,
-    padding: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(34, 197, 94, 0.15)", // Engil yashil fon
+    borderRadius: 8,
+    padding: 14,
     marginBottom: 16,
     borderLeftWidth: 4,
-    borderLeftColor: '#22c55e',
-    shadowColor: '#22c55e',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    borderLeftColor: "#22c55e",
   },
   successText: {
-    color: '#86efac',
-    fontSize: 14,
+    color: "#86efac",
+    fontSize: 15,
     marginLeft: 12,
     flex: 1,
-    fontWeight: '500',
+    fontWeight: "400",
   },
 
-  // Submit Button
+  // MARK: - Submit Button
   submitButton: {
-    borderRadius: 14,
-    paddingVertical: 16,
-    marginTop: 12,
+    borderRadius: 12,
+    paddingVertical: 18,
+    marginTop: 20,
     marginBottom: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   buttonDisabled: {
-    opacity: 0.6,
+    opacity: 0.4, // Qattiqroq o'chirish
+    backgroundColor: "#334155", // Kulrang fon
   },
   submitButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginLeft: 8,
+    color: "#fff",
+    fontSize: 17,
+    fontWeight: "700",
+    textAlign: "center",
+    // marginLeft: 8, // Olib tashlangan
   },
 
-  // Switch Links
+  // MARK: - Switch Links
   switchContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 16,
-    paddingVertical: 12,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 10,
+    paddingVertical: 10,
   },
   switchText: {
-    color: '#9ca3af',
-    fontSize: 14,
-    fontWeight: '500',
+    color: "#94a3b8",
+    fontSize: 15,
+    fontWeight: "400",
+    marginRight: 4,
   },
   switchLink: {
-    color: '#3b82f6',
-    fontSize: 14,
-    fontWeight: '700',
+    color: "#60a5fa", // Asosiy ko'k rang
+    fontSize: 15,
+    fontWeight: "700",
   },
   switchLink2: {
-    color: '#ec4899',
-    fontSize: 14,
-    fontWeight: '700',
+    color: "#ec4899",
+    fontSize: 15,
+    fontWeight: "700",
   },
 });
