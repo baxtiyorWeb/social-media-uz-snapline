@@ -271,8 +271,8 @@ export default function AuthApp() {
             </View>
 
             {/* Title */}
-            <Text style={styles.mainTitle}>PlayVibe</Text>
-            <Text style={styles.tagline}>Video Platformasi</Text>
+            <Text style={styles.mainTitle}>Snappy</Text>
+            <Text style={styles.tagline}>Snappy Ijtimoiy Tarmog&apos;i </Text>
             <Text style={styles.subtitle}>
               Xush Kelibsiz! Ilovadan foydalanish uchun kirish yoki ro'yxatdan
               o'tishni tanlang.

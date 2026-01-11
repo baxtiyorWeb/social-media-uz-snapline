@@ -41,9 +41,8 @@ export const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
-  },
+  }, // Video Player
 
-  // Video Player
   videoContainer: {
     width,
     height: width * 1.6,
@@ -117,18 +116,16 @@ export const styles = StyleSheet.create({
     color: "#5e5ce6",
     fontSize: 12,
     fontWeight: "600",
-  },
+  }, // Content
 
-  // Content
   content: {
     backgroundColor: "#000",
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     marginTop: 28,
     paddingTop: 20,
-  },
+  }, // Title Section
 
-  // Title Section
   titleSection: {
     paddingHorizontal: 20,
     marginBottom: 20,
@@ -138,9 +135,8 @@ export const styles = StyleSheet.create({
     fontWeight: "800",
     color: "#fff",
     lineHeight: 28,
-  },
+  }, // User Card
 
-  // User Card
   userCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -211,9 +207,8 @@ export const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 1,
     borderColor: "rgba(0, 212, 255, 0.3)",
-  },
+  }, // Description
 
-  // Description
   descriptionSection: {
     paddingHorizontal: 20,
     marginBottom: 16,
@@ -228,9 +223,8 @@ export const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     marginTop: 6,
-  },
+  }, // Hashtags
 
-  // Hashtags
   hashtagsContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -250,9 +244,8 @@ export const styles = StyleSheet.create({
     color: "#5e5ce6",
     fontSize: 13,
     fontWeight: "600",
-  },
+  }, /// Stats
 
-  /// Stats
   statsContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -275,8 +268,7 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     color: "rgba(255,255,255,0.6)",
     marginTop: 2,
-  },
-  // Actions (Minimal & Serious)
+  }, // Actions (Minimal & Serious)
   actionButtons: {
     flexDirection: "row",
     paddingHorizontal: 20,
@@ -301,9 +293,8 @@ export const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     color: "#fff",
-  },
+  }, // Tabs
 
-  // Tabs
   tabsContainer: {
     flexDirection: "row",
     paddingHorizontal: 20,
@@ -335,14 +326,105 @@ export const styles = StyleSheet.create({
     height: 3,
     backgroundColor: "#5e5ce6",
     borderRadius: 1.5,
-  },
+  }, // Comments Section
 
-  // Comments
   commentsSection: {
     paddingHorizontal: 20,
     marginBottom: 20,
+  }, // --- COMMENT STYLES (YANGI QO'SHILDI) ---
+
+  commentItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.05)",
   },
-  // Related
+  commentContent: {
+    flexDirection: "row",
+    flex: 1,
+    marginRight: 10,
+  },
+  commentAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+  },
+  commentBody: {
+    flex: 1,
+  },
+  commentUser: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "rgba(255,255,255,0.7)",
+    marginBottom: 4,
+  },
+  commentText: {
+    fontSize: 15,
+    color: "#fff",
+    lineHeight: 22,
+  },
+  commentMeta: {
+    flexDirection: "row",
+    marginTop: 8,
+    gap: 12,
+    alignItems: "center",
+  },
+  commentTime: {
+    fontSize: 12,
+    color: "rgba(255,255,255,0.4)",
+  },
+  commentReplyText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "rgba(255,255,255,0.6)",
+  },
+  commentActions: {
+    alignItems: "center",
+    paddingLeft: 10,
+  },
+  commentLikes: {
+    fontSize: 12,
+    color: "rgba(255,255,255,0.5)",
+    marginTop: 4,
+    fontWeight: "600",
+  }, // Reply Styles (YANGI QO'SHILDI)
+
+  repliesContainer: {
+    marginTop: 15,
+    paddingLeft: 10,
+    borderLeftWidth: 2,
+    borderLeftColor: "rgba(0, 212, 255, 0.1)",
+  },
+  replyItem: {
+    flexDirection: "row",
+    paddingVertical: 8,
+  },
+  replyAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+  },
+  replyBody: {
+    flex: 1,
+  },
+  replyUser: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "rgba(255,255,255,0.6)",
+    marginBottom: 2,
+  },
+  replyText: {
+    fontSize: 14,
+    color: "rgba(255,255,255,0.8)",
+    lineHeight: 20,
+  }, // --- COMMENT STYLES TUGADI --- // Related
   relatedSection: {
     paddingHorizontal: 12,
     marginBottom: 20,
@@ -389,9 +471,8 @@ export const styles = StyleSheet.create({
   relatedViews: {
     fontSize: 11,
     color: "rgba(255,255,255,0.5)",
-  },
+  }, // Empty State
 
-  // Empty State
   emptyState: {
     alignItems: "center",
     justifyContent: "center",
@@ -402,9 +483,8 @@ export const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.5)",
     marginTop: 12,
     fontWeight: "600",
-  },
+  }, // Comment Input
 
-  // Comment Input
   commentInputContainer: {
     flexDirection: "row",
     alignItems: "flex-end",
@@ -449,9 +529,8 @@ export const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     backgroundColor: "rgba(0, 212, 255, 0.3)",
-  },
+  }, // Loading & Error
 
-  // Loading & Error
   loadingContainer: {
     flex: 1,
     justifyContent: "center",

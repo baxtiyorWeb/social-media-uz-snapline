@@ -2,8 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 
 // const BASE_URL = 'https://snappy-backend-pearl.vercel.app';
-const BASE_URL = 'snappy-backend-pearl.vercel.app';
-
+const BASE_URL = 'https://snappy-backend-pearl.vercel.app';
+const BASE_LOCAL_URL = 'http://10.75.53.176:4040'
 
 const api = axios.create({
   baseURL: BASE_URL,

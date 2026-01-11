@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, FlatList, Keyboard } from "react-native";
 import { io, Socket } from "socket.io-client";
 
-const SOCKET_URL = "http://10.75.53.167:4040";
+const SOCKET_URL = "https://snappy-backend-pearl.vercel.app";
 
 interface ChatMessage {
   id: string;

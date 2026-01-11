@@ -1,6 +1,9 @@
 import { styles } from "@/hooks/add-video/styles";
 import { useAddVideo } from "@/hooks/add-video/use-add-video";
+import { Ionicons } from "@expo/vector-icons";
 import { ResizeMode, Video } from "expo-av";
+import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
 import {
   ActivityIndicator,
@@ -13,6 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+
 export default function AddVideoScreen() {
   const {
     selectedVideo,
@@ -58,9 +62,18 @@ export default function AddVideoScreen() {
     return (
       <View style={styles.successContainer}>
         <View style={styles.successContent}>
-          <Text style={styles.checkmark}>✓</Text>
-          <Text style={styles.successTitle}>Muvaffaqiyat!</Text>
-          <Text style={styles.successText}>Video muvaffaqiyatli yuklandi</Text>
+          <View style={styles.successIconContainer}>
+            <LinearGradient
+              colors={["#4CAF50", "#45a049"]}
+              style={styles.successIconGradient}
+            >
+              <Ionicons name="checkmark-circle" size={80} color="#fff" />
+            </LinearGradient>
+          </View>
+          <Text style={styles.successTitle}>Muvaffaqiyatli yuklandi!</Text>
+          <Text style={styles.successText}>
+            Videongiz ko'rib chiqilmoqda va tez orada nashr qilinadi
+          </Text>
         </View>
       </View>
     );
@@ -75,15 +88,29 @@ export default function AddVideoScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Video Yuklash</Text>
-          <Text style={styles.headerSubtitle}>
-            60 soniyagacha video yuboring
-          </Text>
-        </View>
+        {/* Header */}
+        <BlurView intensity={80} tint="dark" style={styles.header}>
+          <View style={styles.headerContent}>
+            <View>
+              <Text style={styles.headerTitle}>Video Yuklash</Text>
+              <Text style={styles.headerSubtitle}>
+                60 soniyagacha video joylashtiring
+              </Text>
+            </View>
+            {selectedVideo && (
+              <TouchableOpacity
+                style={styles.headerButton}
+                onPress={clearVideo}
+              >
+                <Ionicons name="trash-outline" size={24} color="#ff3b5c" />
+              </TouchableOpacity>
+            )}
+          </View>
+        </BlurView>
 
         {selectedVideo ? (
           <View style={styles.formContainer}>
+            {/* Video Preview */}
             <View style={styles.videoPreview}>
               <Video
                 ref={videoRef}
@@ -93,40 +120,70 @@ export default function AddVideoScreen() {
                 isLooping
                 onPlaybackStatusUpdate={(status) => {
                   if ("isPlaying" in status) {
-                    // status.isPlaying is available; playback state is managed inside the hook
+                    // Playback state handled in hook
                   }
                 }}
               />
 
-              <TouchableOpacity style={styles.playButton} onPress={togglePlay}>
-                <Text style={styles.playIcon}>{isPlaying ? "⏸" : "▶"}</Text>
-              </TouchableOpacity>
+              <View style={styles.videoOverlay}>
+                <TouchableOpacity
+                  style={styles.playButton}
+                  onPress={togglePlay}
+                  activeOpacity={0.8}
+                >
+                  <BlurView
+                    intensity={60}
+                    tint="dark"
+                    style={styles.playButtonBlur}
+                  >
+                    <Ionicons
+                      name={isPlaying ? "pause" : "play"}
+                      size={32}
+                      color="#fff"
+                    />
+                  </BlurView>
+                </TouchableOpacity>
+              </View>
 
-              <TouchableOpacity style={styles.clearBtn} onPress={clearVideo}>
-                <Text style={styles.clearIcon}>✕</Text>
-              </TouchableOpacity>
+              {/* Duration Badge */}
+              <View style={styles.durationBadge}>
+                <Ionicons name="time-outline" size={14} color="#fff" />
+                <Text style={styles.durationText}>0:45</Text>
+              </View>
             </View>
 
+            {/* Upload Progress */}
             {isUploading && uploadProgress > 0 && (
               <View style={styles.progressContainer}>
+                <View style={styles.progressHeader}>
+                  <Text style={styles.progressLabel}>Yuklanmoqda...</Text>
+                  <Text style={styles.progressPercent}>{uploadProgress}%</Text>
+                </View>
                 <View style={styles.progressBar}>
-                  <View
+                  <LinearGradient
+                    colors={["#5e5ce6", "#8b5cf6"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
                     style={[
                       styles.progressFill,
                       { width: `${uploadProgress}%` },
                     ]}
                   />
                 </View>
-                <Text style={styles.progressText}>{uploadProgress}%</Text>
               </View>
             )}
 
+            {/* Caption */}
             <View style={styles.section}>
-              <Text style={styles.label}>📝 Tavsif *</Text>
+              <View style={styles.sectionHeader}>
+                <Ionicons name="create-outline" size={20} color="#5e5ce6" />
+                <Text style={styles.label}>Tavsif</Text>
+                <Text style={styles.required}>*</Text>
+              </View>
               <TextInput
                 style={styles.textArea}
-                placeholder="Videoga tavsif yozing..."
-                placeholderTextColor="#999"
+                placeholder="Videongiz haqida yozing..."
+                placeholderTextColor="rgba(255,255,255,0.4)"
                 value={caption}
                 onChangeText={setCaption}
                 multiline
@@ -135,8 +192,13 @@ export default function AddVideoScreen() {
               <Text style={styles.charCount}>{caption.length}/500</Text>
             </View>
 
+            {/* Category */}
             <View style={styles.section}>
-              <Text style={styles.label}>🏷️ Kategoriya *</Text>
+              <View style={styles.sectionHeader}>
+                <Ionicons name="grid-outline" size={20} color="#5e5ce6" />
+                <Text style={styles.label}>Kategoriya</Text>
+                <Text style={styles.required}>*</Text>
+              </View>
               <View style={styles.categoryGrid}>
                 {categories.map((cat) => (
                   <TouchableOpacity
@@ -146,7 +208,14 @@ export default function AddVideoScreen() {
                       category === cat && styles.categoryBtnActive,
                     ]}
                     onPress={() => setCategory(cat)}
+                    activeOpacity={0.7}
                   >
+                    {category === cat && (
+                      <LinearGradient
+                        colors={["#5e5ce6", "#8b5cf6"]}
+                        style={styles.categoryGradient}
+                      />
+                    )}
                     <Text
                       style={[
                         styles.categoryText,
@@ -160,31 +229,47 @@ export default function AddVideoScreen() {
               </View>
             </View>
 
+            {/* Hashtags */}
             <View style={styles.section}>
-              <Text style={styles.label}>#️⃣ Xeshteglar</Text>
+              <View style={styles.sectionHeader}>
+                <Ionicons name="pricetag-outline" size={20} color="#5e5ce6" />
+                <Text style={styles.label}>Xeshteglar</Text>
+              </View>
               <TextInput
                 style={styles.input}
                 placeholder="#music #video #trending"
-                placeholderTextColor="#999"
+                placeholderTextColor="rgba(255,255,255,0.4)"
                 value={hashtags}
                 onChangeText={setHashtags}
               />
             </View>
 
+            {/* Description */}
             <View style={styles.section}>
-              <Text style={styles.label}>📄 Qo'shimcha Tavsif</Text>
+              <View style={styles.sectionHeader}>
+                <Ionicons
+                  name="document-text-outline"
+                  size={20}
+                  color="#5e5ce6"
+                />
+                <Text style={styles.label}>Qo'shimcha Tavsif</Text>
+              </View>
               <TextInput
-                style={[styles.textArea, { height: 100 }]}
-                placeholder="Video haqida batafsil ma'lumot..."
-                placeholderTextColor="#999"
+                style={[styles.textArea, { minHeight: 80 }]}
+                placeholder="Video haqida batafsil..."
+                placeholderTextColor="rgba(255,255,255,0.4)"
                 value={description}
                 onChangeText={setDescription}
                 multiline
               />
             </View>
 
+            {/* Quality */}
             <View style={styles.section}>
-              <Text style={styles.label}>⚙️ Sifat</Text>
+              <View style={styles.sectionHeader}>
+                <Ionicons name="settings-outline" size={20} color="#5e5ce6" />
+                <Text style={styles.label}>Sifat</Text>
+              </View>
               <View style={styles.qualityRow}>
                 {["SD", "HD", "4K"].map((q) => (
                   <TouchableOpacity
@@ -194,7 +279,14 @@ export default function AddVideoScreen() {
                       quality === q && styles.qualityBtnActive,
                     ]}
                     onPress={() => setQuality(q)}
+                    activeOpacity={0.7}
                   >
+                    {quality === q && (
+                      <LinearGradient
+                        colors={["#5e5ce6", "#8b5cf6"]}
+                        style={styles.qualityGradient}
+                      />
+                    )}
                     <Text
                       style={[
                         styles.qualityText,
@@ -208,114 +300,222 @@ export default function AddVideoScreen() {
               </View>
             </View>
 
+            {/* Privacy Settings */}
             <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Ionicons name="shield-outline" size={20} color="#5e5ce6" />
+                <Text style={styles.label}>Maxfiylik</Text>
+              </View>
+
               <View style={styles.toggleItem}>
-                <Text style={styles.toggleLabel}>🌍 Ommaviy Video</Text>
+                <View style={styles.toggleLeft}>
+                  <Ionicons name="globe-outline" size={22} color="#fff" />
+                  <Text style={styles.toggleLabel}>Ommaviy Video</Text>
+                </View>
                 <Switch
                   value={isPublic}
                   onValueChange={setIsPublic}
-                  trackColor={{ false: "#ccc", true: "#4CAF50" }}
+                  trackColor={{
+                    false: "rgba(255,255,255,0.1)",
+                    true: "#5e5ce6",
+                  }}
+                  thumbColor="#fff"
                 />
               </View>
 
               <View style={styles.toggleItem}>
-                <Text style={styles.toggleLabel}>💬 Izohlar</Text>
+                <View style={styles.toggleLeft}>
+                  <Ionicons name="chatbubble-outline" size={22} color="#fff" />
+                  <Text style={styles.toggleLabel}>Izohlar</Text>
+                </View>
                 <Switch
                   value={allowComments}
                   onValueChange={setAllowComments}
-                  trackColor={{ false: "#ccc", true: "#4CAF50" }}
+                  trackColor={{
+                    false: "rgba(255,255,255,0.1)",
+                    true: "#5e5ce6",
+                  }}
+                  thumbColor="#fff"
                 />
               </View>
 
-              <View style={styles.toggleItem}>
-                <Text style={styles.toggleLabel}>❤️ Like'lar</Text>
+              <View style={[styles.toggleItem, styles.toggleItemLast]}>
+                <View style={styles.toggleLeft}>
+                  <Ionicons name="heart-outline" size={22} color="#fff" />
+                  <Text style={styles.toggleLabel}>Likelar</Text>
+                </View>
                 <Switch
                   value={allowLikes}
                   onValueChange={setAllowLikes}
-                  trackColor={{ false: "#ccc", true: "#4CAF50" }}
+                  trackColor={{
+                    false: "rgba(255,255,255,0.1)",
+                    true: "#5e5ce6",
+                  }}
+                  thumbColor="#fff"
                 />
               </View>
             </View>
 
+            {/* Advanced Settings */}
             <TouchableOpacity
               style={styles.advancedBtn}
               onPress={() => setShowAdvanced(!showAdvanced)}
+              activeOpacity={0.7}
             >
+              <Ionicons
+                name={showAdvanced ? "chevron-up" : "chevron-down"}
+                size={20}
+                color="#5e5ce6"
+              />
               <Text style={styles.advancedText}>
-                {showAdvanced ? "▼" : "▶"}{" "}
-                {showAdvanced ? "Kamroq Sozlamalar" : "Ko'proq Sozlamalar"}
+                {showAdvanced ? "Kamroq" : "Ko'proq"} Sozlamalar
               </Text>
             </TouchableOpacity>
 
             {showAdvanced && (
               <View style={styles.advancedSection}>
-                <Text style={styles.label}>🏷️ Teglar</Text>
-                <View style={styles.tagsContainer}>
-                  {tags.map((tag, idx) => (
-                    <View key={idx} style={styles.tag}>
-                      <Text style={styles.tagText}>{tag}</Text>
-                      <TouchableOpacity onPress={() => removeTag(idx)}>
-                        <Text style={styles.removeTag}>×</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ))}
+                <View style={styles.sectionHeader}>
+                  <Ionicons name="bookmark-outline" size={20} color="#5e5ce6" />
+                  <Text style={styles.label}>Teglar</Text>
                 </View>
+
+                {tags.length > 0 && (
+                  <View style={styles.tagsContainer}>
+                    {tags.map((tag, idx) => (
+                      <View key={idx} style={styles.tag}>
+                        <Text style={styles.tagText}>{tag}</Text>
+                        <TouchableOpacity onPress={() => removeTag(idx)}>
+                          <Ionicons name="close" size={16} color="#fff" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
                 <View style={styles.tagInputRow}>
                   <TextInput
                     style={styles.tagInput}
-                    placeholder="Tag qo'shing..."
-                    placeholderTextColor="#999"
+                    placeholder="Tag qo'shish..."
+                    placeholderTextColor="rgba(255,255,255,0.4)"
                     value={tagInput}
                     onChangeText={setTagInput}
                     onSubmitEditing={addTag}
                   />
-                  <TouchableOpacity style={styles.addTagBtn} onPress={addTag}>
-                    <Text style={styles.addTagText}>+</Text>
+                  <TouchableOpacity
+                    style={styles.addTagBtn}
+                    onPress={addTag}
+                    activeOpacity={0.8}
+                  >
+                    <LinearGradient
+                      colors={["#5e5ce6", "#8b5cf6"]}
+                      style={styles.addTagGradient}
+                    >
+                      <Ionicons name="add" size={24} color="#fff" />
+                    </LinearGradient>
                   </TouchableOpacity>
                 </View>
               </View>
             )}
 
+            {/* Upload Button */}
             <TouchableOpacity
               style={[
                 styles.uploadBtn,
-                isUploading && styles.uploadBtnDisabled,
+                (isUploading || !caption.trim() || !category) &&
+                  styles.uploadBtnDisabled,
               ]}
               onPress={handleUpload}
-              disabled={isUploading || uploadProgress > 0}
+              disabled={isUploading || !caption.trim() || !category}
+              activeOpacity={0.8}
             >
-              {isUploading ? (
-                <ActivityIndicator color="#fff" size="large" />
-              ) : (
-                <Text style={styles.uploadBtnText}>Videoni Yuklash</Text>
-              )}
+              <LinearGradient
+                colors={
+                  isUploading || !caption.trim() || !category
+                    ? ["#666", "#555"]
+                    : ["#5e5ce6", "#8b5cf6"]
+                }
+                style={styles.uploadBtnGradient}
+              >
+                {isUploading ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <>
+                    <Ionicons
+                      name="cloud-upload-outline"
+                      size={24}
+                      color="#fff"
+                    />
+                    <Text style={styles.uploadBtnText}>Videoni Yuklash</Text>
+                  </>
+                )}
+              </LinearGradient>
             </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.selectionContainer}>
-            <TouchableOpacity style={styles.optionCard} onPress={pickVideo}>
-              <Text style={styles.optionIcon}>📱</Text>
+            {/* Gallery Option */}
+            <TouchableOpacity
+              style={styles.optionCard}
+              onPress={pickVideo}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={["rgba(94,92,230,0.1)", "rgba(139,92,246,0.1)"]}
+                style={styles.optionGradient}
+              />
+              <View style={styles.optionIconContainer}>
+                <Ionicons name="images" size={48} color="#5e5ce6" />
+              </View>
               <Text style={styles.optionTitle}>Galereyadan Tanlash</Text>
               <Text style={styles.optionDesc}>
                 Telefoningizdagi videolardan birini tanlang
               </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.optionCard} onPress={recordVideo}>
-              <Text style={styles.optionIcon}>🎥</Text>
+            {/* Record Option */}
+            <TouchableOpacity
+              style={styles.optionCard}
+              onPress={recordVideo}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={["rgba(255,59,92,0.1)", "rgba(255,107,129,0.1)"]}
+                style={styles.optionGradient}
+              />
+              <View style={styles.optionIconContainer}>
+                <Ionicons name="videocam" size={48} color="#ff3b5c" />
+              </View>
               <Text style={styles.optionTitle}>Video Yozish</Text>
               <Text style={styles.optionDesc}>
                 Kamera orqali yangi video yarating
               </Text>
             </TouchableOpacity>
 
+            {/* Tips */}
             <View style={styles.tipsContainer}>
-              <Text style={styles.tipsTitle}>💡 Maslahatlar:</Text>
-              <Text style={styles.tipText}>✓ 9:16 format tavsiya etiladi</Text>
-              <Text style={styles.tipText}>
-                ✓ Maksimal davomiyligi: 60 soniya
-              </Text>
-              <Text style={styles.tipText}>✓ Yorug'lik yaxshi bo'lsin</Text>
+              <View style={styles.tipsHeader}>
+                <Ionicons name="bulb" size={24} color="#5e5ce6" />
+                <Text style={styles.tipsTitle}>Maslahatlar</Text>
+              </View>
+
+              <View style={styles.tipItem}>
+                <Ionicons name="checkmark-circle" size={18} color="#4CAF50" />
+                <Text style={styles.tipText}>
+                  9:16 vertikal format eng yaxshi
+                </Text>
+              </View>
+
+              <View style={styles.tipItem}>
+                <Ionicons name="checkmark-circle" size={18} color="#4CAF50" />
+                <Text style={styles.tipText}>Maksimal: 60 soniya</Text>
+              </View>
+
+              <View style={styles.tipItem}>
+                <Ionicons name="checkmark-circle" size={18} color="#4CAF50" />
+                <Text style={styles.tipText}>
+                  Yaxshi yoritilgan joyda suratga oling
+                </Text>
+              </View>
             </View>
           </View>
         )}

@@ -1,6 +1,12 @@
 export interface Comment {
   id: string;
-  user: string;
+  content: string;
+  user: {
+    profile: {
+      avatar: string;
+      username: string;
+    };
+  };
   avatar: string;
   text: string;
   likes: number;
