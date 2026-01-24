@@ -36,7 +36,7 @@ async function fetchFeedPosts(
       likes: item.likes || 0,
       comments: item.comments || 0,
       shares: item.shares || 0,
-      isLiked: false, // Default false, keyinchalik API'dan olish mumkin
+      isLiked: false,
       isSaved: false,
       isFollowing: false,
     }));
@@ -64,6 +64,9 @@ async function togglePostLike(
   }
 }
 
+
+
+
 /**
  * Comment yaratish
  */
@@ -76,6 +79,9 @@ async function createComment(postId: number, content: string): Promise<any> {
     throw error;
   }
 }
+
+
+
 
 /**
  * Commentlarni olish

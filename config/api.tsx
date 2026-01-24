@@ -12,6 +12,9 @@ const api = axios.create({
   },
 });
 
+
+
+
 api.interceptors.request.use(
   async (config) => {
     const token = await AsyncStorage.getItem('access_token');

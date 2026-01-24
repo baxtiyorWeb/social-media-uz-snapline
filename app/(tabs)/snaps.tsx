@@ -216,6 +216,7 @@ export default function HomeScreen() {
           isLooping
         />
 
+        
         <View style={styles.gradientTop} />
         <View style={styles.gradientBottom} />
 
